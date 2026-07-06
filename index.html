@@ -1,46 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Civ 6 Leaderboard</title>
+<title>Civ 6 Şeref Listesi</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>🏛️ Civ 6 Leaderboard</h1>
+  <h1>🏛️ Civ 6 Şeref Listesi</h1>
   <nav>
-    <a href="index.html" class="active">Leaderboard</a>
-    <a href="rules.html">Rules</a>
-    <a href="blog.html">Blog</a>
-    <a href="playlist.html">Playlist</a>
-    <a href="admin.html">Admin</a>
+    <a href="index.html" class="active">Şeref Listesi</a>
+    <a href="rules.html">Kurallar</a>
+    <a href="blog.html">Günce</a>
+    <a href="playlist.html">Çalma Listesi</a>
+    <a href="admin.html">Yönetim</a>
   </nav>
 </header>
 
 <div class="hero-banner">
   <div class="crest">👑</div>
-  <h1>Hall of Fame</h1>
-  <p>Glory to the civilization that rises above all others.</p>
+  <h1>Şeref Tapınağı</h1>
+  <p>Zafer, diğer tüm medeniyetlerin üzerine yükselen imparatorluğa ait olsun.</p>
 </div>
 
 <main>
   <section class="panel">
-    <h2>🏆 Standings</h2>
-    <p class="muted">Total points across all recorded games.</p>
+    <h2>🏆 Sıralama</h2>
+    <p class="muted">Kayıtlı tüm oyunlardaki toplam puanlar.</p>
     <table id="leaderboard-table">
       <thead>
-        <tr><th>#</th><th>Player</th><th>Points</th><th>Games</th></tr>
+        <tr><th>#</th><th>Oyuncu</th><th>Puan</th><th>Oyun</th></tr>
       </thead>
       <tbody id="leaderboard-body">
-        <tr><td colspan="4" class="muted">Loading...</td></tr>
+        <tr><td colspan="4" class="muted">Yükleniyor...</td></tr>
       </tbody>
     </table>
   </section>
 
   <section class="panel">
-    <h2>📜 Game History</h2>
-    <div id="history-list" class="muted">Loading...</div>
+    <h2>📜 Oyun Tarihçesi</h2>
+    <div id="history-list" class="muted">Yükleniyor...</div>
   </section>
 </main>
 
@@ -60,19 +60,19 @@ async function loadData() {
   const historyList = document.getElementById('history-list');
 
   if (gErr) {
-    leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Could not load data. Check config.js is set up.</td></tr>`;
-    historyList.innerHTML = `<p class="error">Could not load data.</p>`;
+    leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Veriler yüklenemedi. config.js dosyasının doğru ayarlandığından emin olun.</td></tr>`;
+    historyList.innerHTML = `<p class="error">Veriler yüklenemedi.</p>`;
     console.error(gErr);
     return;
   }
 
   if (!games || games.length === 0) {
-    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">No games recorded yet.</td></tr>`;
-    historyList.innerHTML = `<p class="muted">No games recorded yet.</p>`;
+    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">Henüz kayıtlı oyun yok.</td></tr>`;
+    historyList.innerHTML = `<p class="muted">Henüz kayıtlı oyun yok.</p>`;
     return;
   }
 
-  // Aggregate totals
+  // Toplamları hesapla
   const totals = {};
   games.forEach(g => {
     (g.results || []).forEach(r => {
@@ -93,17 +93,17 @@ async function loadData() {
     </tr>
   `).join('');
 
-  // Game history
+  // Oyun tarihçesi
   historyList.innerHTML = games.map(g => {
     const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
-    const title = g.name || g.note || `Game on ${g.played_on}`;
+    const title = g.name || g.note || `${g.played_on} tarihli oyun`;
     return `
       <div class="game-card">
         <div class="date">${g.played_on}</div>
         <h3 style="margin:0.2rem 0 0.5rem;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         <ol>
-          ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
+          ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
         </ol>
         ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}

@@ -1,85 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Playlist — Civ 6 Leaderboard</title>
+<title>Çalma Listesi — Civ 6 Şeref Listesi</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-<h1>🏛️ Civ 6 Leaderboard</h1>
+<h1>🏛️ Civ 6 Şeref Listesi</h1>
 <nav>
-<a href="index.html">Leaderboard</a>
-<a href="rules.html">Rules</a>
-<a href="blog.html">Blog</a>
-<a href="playlist.html" class="active">Playlist</a>
-<a href="admin.html">Admin</a>
+<a href="index.html">Şeref Listesi</a>
+<a href="rules.html">Kurallar</a>
+<a href="blog.html">Günce</a>
+<a href="playlist.html" class="active">Çalma Listesi</a>
+<a href="admin.html">Yönetim</a>
 </nav>
 </header>
 
 <div class="hero-banner">
 <div class="crest">🎶</div>
-<h1>The Royal Jukebox</h1>
-<p>Songs to conquer civilizations by. Add your anthem below.</p>
+<h1>Kraliyet Nağme Sandığı</h1>
+<p>Medeniyetleri fethederken çalınacak ezgiler.</p>
 </div>
 
 <main>
 <section class="panel" id="account-panel">
 <div class="tab-row" id="auth-tabs">
-<button id="tab-login">Log In</button>
-<button id="tab-signup" class="inactive">Create Account</button>
+<button id="tab-login">Giriş Yap</button>
+<button id="tab-signup" class="inactive">Hesap Oluştur</button>
 </div>
 
 <div id="login-form">
-<h2>🔑 Log In</h2>
-<label for="login-username">Username</label>
-<input type="text" id="login-username" placeholder="Your username">
-<label for="login-password">Password</label>
-<input type="password" id="login-password" placeholder="Your password">
-<button id="login-btn">Log In</button>
+<h2>🔑 Giriş Yap</h2>
+<label for="login-username">Kullanıcı Adı</label>
+<input type="text" id="login-username" placeholder="Kullanıcı adın">
+<label for="login-password">Şifre</label>
+<input type="password" id="login-password" placeholder="Şifren">
+<button id="login-btn">Giriş Yap</button>
 <div id="login-msg"></div>
 </div>
 
 <div id="signup-form" style="display:none;">
-<h2>📝 Create Account</h2>
-<label for="signup-username">Choose a username</label>
-<input type="text" id="signup-username" placeholder="e.g. Alperen">
-<label for="signup-password">Choose a password</label>
-<input type="password" id="signup-password" placeholder="At least 6 characters">
-<button id="signup-btn">Create Account</button>
+<h2>📝 Hesap Oluştur</h2>
+<label for="signup-username">Bir kullanıcı adı seç</label>
+<input type="text" id="signup-username" placeholder="örn. Alperen">
+<label for="signup-password">Bir şifre seç</label>
+<input type="password" id="signup-password" placeholder="En az 6 karakter">
+<button id="signup-btn">Hesap Oluştur</button>
 <div id="signup-msg"></div>
 </div>
 
 <div id="claim-username-form" style="display:none;">
-<h2>🏷️ Choose a Username</h2>
-<p class="muted">You're logged in but haven't picked a username yet.</p>
-<label for="claim-username">Username</label>
-<input type="text" id="claim-username" placeholder="e.g. Alperen">
-<button id="claim-btn">Save Username</button>
-<button class="secondary" id="claim-logout-btn">Log Out Instead</button>
+<h2>🏷️ Bir Kullanıcı Adı Seç</h2>
+<p class="muted">Giriş yaptın ama henüz bir kullanıcı adı seçmedin.</p>
+<label for="claim-username">Kullanıcı Adı</label>
+<input type="text" id="claim-username" placeholder="örn. Alperen">
+<button id="claim-btn">Kullanıcı Adını Kaydet</button>
+<button class="secondary" id="claim-logout-btn">Bunun Yerine Çıkış Yap</button>
 <div id="claim-msg"></div>
 </div>
 
 <div id="logged-in-panel" style="display:none;">
-<p><span class="pill">🎶 Logged in as <strong id="current-username"></strong></span></p>
-<button class="secondary" id="logout-btn">Log Out</button>
+<p><span class="pill">🎶 Giriş yapan: <strong id="current-username"></strong></span></p>
+<button class="secondary" id="logout-btn">Çıkış Yap</button>
 </div>
 </section>
 
 <section class="panel" id="compose-panel" style="display:none;">
-<h2>➕ Add a Song</h2>
-<label for="song-name">Song / Track Name</label>
-<input type="text" id="song-name" placeholder="e.g. Baba Yetu">
-<label for="song-url">Link (optional, YouTube preferred)</label>
+<h2>➕ Şarkı Ekle</h2>
+<label for="song-name">Şarkı / Parça Adı</label>
+<input type="text" id="song-name" placeholder="örn. Baba Yetu">
+<label for="song-url">Bağlantı (isteğe bağlı, tercihen YouTube)</label>
 <input type="text" id="song-url" placeholder="https://www.youtube.com/watch?v=...">
-<button id="song-submit-btn">Add to Playlist</button>
+<button id="song-submit-btn">Çalma Listesine Ekle</button>
 <div id="song-msg"></div>
 </section>
 
 <section class="panel">
-<h2>📜 Current Playlist</h2>
-<div id="playlist-list" class="muted">Loading...</div>
+<h2>📜 Mevcut Çalma Listesi</h2>
+<div id="playlist-list" class="muted">Yükleniyor...</div>
 </section>
 </main>
 
@@ -168,12 +168,12 @@ document.getElementById('signup-btn').addEventListener('click', async () => {
   const password = document.getElementById('signup-password').value;
 
   if (!username || username.length < 2) {
-    msgEl.textContent = 'Choose a username with at least 2 characters.';
+    msgEl.textContent = 'En az 2 karakterden oluşan bir kullanıcı adı seç.';
     msgEl.className = 'error';
     return;
   }
   if (!password || password.length < 6) {
-    msgEl.textContent = 'Password must be at least 6 characters.';
+    msgEl.textContent = 'Şifre en az 6 karakter olmalı.';
     msgEl.className = 'error';
     return;
   }
@@ -185,7 +185,7 @@ document.getElementById('signup-btn').addEventListener('click', async () => {
     .maybeSingle();
 
   if (existing) {
-    msgEl.textContent = 'That username is already taken.';
+    msgEl.textContent = 'Bu kullanıcı adı zaten alınmış.';
     msgEl.className = 'error';
     return;
   }
@@ -208,13 +208,13 @@ document.getElementById('signup-btn').addEventListener('click', async () => {
       .insert({ id: userId, username });
 
     if (profileErr) {
-      msgEl.textContent = 'Account created but username could not be saved: ' + profileErr.message;
+      msgEl.textContent = 'Hesap oluşturuldu ama kullanıcı adı kaydedilemedi: ' + profileErr.message;
       msgEl.className = 'error';
       return;
     }
   }
 
-  msgEl.textContent = 'Account created! You are now logged in.';
+  msgEl.textContent = 'Hesap oluşturuldu! Artık giriş yaptın.';
   msgEl.className = 'success';
   await refreshAuthState();
 });
@@ -233,7 +233,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   });
 
   if (error) {
-    msgEl.textContent = 'Incorrect username or password.';
+    msgEl.textContent = 'Kullanıcı adı veya şifre hatalı.';
     msgEl.className = 'error';
     return;
   }
@@ -248,7 +248,7 @@ document.getElementById('claim-btn').addEventListener('click', async () => {
 
   const username = document.getElementById('claim-username').value.trim();
   if (!username || username.length < 2) {
-    msgEl.textContent = 'Choose a username with at least 2 characters.';
+    msgEl.textContent = 'En az 2 karakterden oluşan bir kullanıcı adı seç.';
     msgEl.className = 'error';
     return;
   }
@@ -260,7 +260,7 @@ document.getElementById('claim-btn').addEventListener('click', async () => {
     .maybeSingle();
 
   if (existing) {
-    msgEl.textContent = 'That username is already taken.';
+    msgEl.textContent = 'Bu kullanıcı adı zaten alınmış.';
     msgEl.className = 'error';
     return;
   }
@@ -299,7 +299,7 @@ document.getElementById('song-submit-btn').addEventListener('click', async () =>
   const songUrl = urlInput.value.trim();
 
   if (!songName) {
-    msgEl.textContent = 'Give the song a name.';
+    msgEl.textContent = 'Şarkıya bir isim ver.';
     msgEl.className = 'error';
     return;
   }
@@ -312,12 +312,12 @@ document.getElementById('song-submit-btn').addEventListener('click', async () =>
   });
 
   if (error) {
-    msgEl.textContent = 'Failed to add song: ' + error.message;
+    msgEl.textContent = 'Şarkı eklenemedi: ' + error.message;
     msgEl.className = 'error';
     return;
   }
 
-  msgEl.textContent = 'Added to the playlist!';
+  msgEl.textContent = 'Çalma listesine eklendi!';
   msgEl.className = 'success';
   nameInput.value = '';
   urlInput.value = '';
@@ -345,18 +345,18 @@ async function loadPlaylist() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    listEl.innerHTML = `<p class="error">Could not load the playlist.</p>`;
+    listEl.innerHTML = `<p class="error">Çalma listesi yüklenemedi.</p>`;
     console.error(error);
     return;
   }
 
   if (!songs || songs.length === 0) {
-    listEl.innerHTML = `<p class="muted">No songs yet. Be the first to add one!</p>`;
+    listEl.innerHTML = `<p class="muted">Henüz şarkı yok. İlk ekleyen sen ol!</p>`;
     return;
   }
 
   listEl.innerHTML = songs.map(s => {
-    const date = new Date(s.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    const date = new Date(s.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
     const canDelete = currentUser && s.author_id === currentUser.id;
     const ytId = getYouTubeId(s.song_url);
 
@@ -366,14 +366,14 @@ async function loadPlaylist() {
         <img class="post-image" src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="">
       </a>`;
     } else if (s.song_url) {
-      media = `<p><a href="${escapeHtml(s.song_url)}" target="_blank" rel="noopener">🔗 Listen</a></p>`;
+      media = `<p><a href="${escapeHtml(s.song_url)}" target="_blank" rel="noopener">🔗 Dinle</a></p>`;
     }
 
     return `
       <div class="post-card">
-        ${canDelete ? `<button class="delete-song" data-id="${s.id}">Delete</button>` : ''}
+        ${canDelete ? `<button class="delete-song" data-id="${s.id}">Sil</button>` : ''}
         <h3>${escapeHtml(s.song_name)}</h3>
-        <div class="post-meta">Added by ${escapeHtml(s.author_name || 'Unknown')} · ${date}</div>
+        <div class="post-meta">${escapeHtml(s.author_name || 'Bilinmiyor')} tarafından eklendi · ${date}</div>
         ${media}
       </div>
     `;
@@ -381,7 +381,7 @@ async function loadPlaylist() {
 
   document.querySelectorAll('.delete-song').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Remove this song from the playlist?')) return;
+      if (!confirm('Bu şarkı çalma listesinden kaldırılsın mı?')) return;
       await supabaseClient.from('playlist_songs').delete().eq('id', btn.dataset.id);
       loadPlaylist();
     });

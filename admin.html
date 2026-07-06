@@ -1,70 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — Civ 6 Leaderboard</title>
+<title>Yönetim — Civ 6 Şeref Listesi</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>🏛️ Civ 6 Leaderboard</h1>
+  <h1>🏛️ Civ 6 Şeref Listesi</h1>
   <nav>
-    <a href="index.html">Leaderboard</a>
-    <a href="rules.html">Rules</a>
-    <a href="blog.html">Blog</a>
-    <a href="playlist.html">Playlist</a>
-    <a href="admin.html" class="active">Admin</a>
+    <a href="index.html">Şeref Listesi</a>
+    <a href="rules.html">Kurallar</a>
+    <a href="blog.html">Günce</a>
+    <a href="playlist.html">Çalma Listesi</a>
+    <a href="admin.html" class="active">Yönetim</a>
   </nav>
 </header>
 
 <div class="hero-banner">
   <div class="crest">⚔️</div>
-  <h1>Council Chamber</h1>
-  <p>Only the admin may record the outcome of battle.</p>
+  <h1>Divan Odası</h1>
+  <p>Savaşın sonucunu yalnızca yönetici kayda geçirebilir.</p>
 </div>
 
 <main>
   <section class="panel" id="login-panel">
-    <h2>🔑 Admin Login</h2>
-    <label for="password">Password</label>
-    <input type="password" id="password" placeholder="Enter admin password">
-    <button id="login-btn">Log in</button>
+    <h2>🔑 Yönetici Girişi</h2>
+    <label for="password">Şifre</label>
+    <input type="password" id="password" placeholder="Yönetici şifresini gir">
+    <button id="login-btn">Giriş yap</button>
     <div id="login-error" class="error"></div>
   </section>
 
   <section class="panel" id="new-game-panel" style="display:none;">
-    <h2>🚩 Start a New Game</h2>
-    <button class="secondary" id="logout-btn" style="margin-top:0;">Log out</button>
+    <h2>🚩 Yeni Bir Oyun Başlat</h2>
+    <button class="secondary" id="logout-btn" style="margin-top:0;">Çıkış yap</button>
 
-    <label for="game-date">Date</label>
+    <label for="game-date">Tarih</label>
     <input type="date" id="game-date">
 
-    <label for="game-name">Game Name</label>
-    <input type="text" id="game-name" placeholder="e.g. The Great War of 2026">
+    <label for="game-name">Oyun Adı</label>
+    <input type="text" id="game-name" placeholder="örn. 2026 Büyük Savaşı">
 
-    <label for="game-description">Description (optional)</label>
-    <textarea id="game-description" placeholder="Map type, speed, ruleset, anything worth noting before the game starts..."></textarea>
+    <label for="game-description">Açıklama (isteğe bağlı)</label>
+    <textarea id="game-description" placeholder="Harita türü, hız, kural seti — oyun başlamadan önce belirtilmesi gereken her şey..."></textarea>
 
-    <button id="start-game-btn">Start Game</button>
+    <button id="start-game-btn">Oyunu Başlat</button>
     <div id="start-game-msg"></div>
   </section>
 
   <section class="panel" id="in-progress-panel" style="display:none;">
-    <h2>⏳ In-Progress Games</h2>
-    <div id="in-progress-list" class="muted">Loading...</div>
+    <h2>⏳ Devam Eden Oyunlar</h2>
+    <div id="in-progress-list" class="muted">Yükleniyor...</div>
   </section>
 
   <section class="panel" id="manage-panel" style="display:none;">
-    <h2>📜 Recorded Games</h2>
-    <div id="manage-list" class="muted">Loading...</div>
+    <h2>📜 Kayıtlı Oyunlar</h2>
+    <div id="manage-list" class="muted">Yükleniyor...</div>
   </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
-const RANK_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
+const RANK_LABELS = ['1.', '2.', '3.', '4.', '5.', '6.'];
 const RANK_POINTS = [6, 4, 3, 2, 1, 0];
 
 const loginPanel = document.getElementById('login-panel');
@@ -99,7 +99,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     password
   });
   if (error) {
-    errEl.textContent = 'Incorrect password.';
+    errEl.textContent = 'Şifre hatalı.';
     return;
   }
   showAdminPanels();
@@ -120,7 +120,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   const description = document.getElementById('game-description').value.trim();
 
   if (!name) {
-    msgEl.textContent = 'Give the game a name.';
+    msgEl.textContent = 'Oyuna bir isim ver.';
     msgEl.className = 'error';
     return;
   }
@@ -133,12 +133,12 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   });
 
   if (error) {
-    msgEl.textContent = 'Failed to start game: ' + error.message;
+    msgEl.textContent = 'Oyun başlatılamadı: ' + error.message;
     msgEl.className = 'error';
     return;
   }
 
-  msgEl.textContent = 'Game started! Add results below once it finishes.';
+  msgEl.textContent = 'Oyun başladı! Bittiğinde sonuçları aşağıya ekle.';
   msgEl.className = 'success';
   document.getElementById('game-name').value = '';
   document.getElementById('game-description').value = '';
@@ -154,21 +154,21 @@ async function loadInProgressList() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    listEl.innerHTML = `<p class="error">Could not load in-progress games.</p>`;
+    listEl.innerHTML = `<p class="error">Devam eden oyunlar yüklenemedi.</p>`;
     return;
   }
 
   if (!games || games.length === 0) {
-    listEl.innerHTML = `<p class="muted">No games in progress. Start one above.</p>`;
+    listEl.innerHTML = `<p class="muted">Devam eden oyun yok. Yukarıdan bir tane başlat.</p>`;
     return;
   }
 
   listEl.innerHTML = games.map(g => `
     <div class="game-card">
-      <div class="date">${g.played_on} · <span class="pill">In Progress</span></div>
+      <div class="date">${g.played_on} · <span class="pill">Devam Ediyor</span></div>
       <h3 style="margin:0.3rem 0;">${escapeHtml(g.name)}</h3>
       ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
-      <button class="finish-game-btn" data-id="${g.id}">Finish Game</button>
+      <button class="finish-game-btn" data-id="${g.id}">Oyunu Bitir</button>
       <div class="finish-form" id="finish-form-${g.id}" style="display:none; margin-top:1rem;"></div>
     </div>
   `).join('');
@@ -188,14 +188,14 @@ function openFinishForm(gameId) {
   formEl.style.display = 'block';
   formEl.innerHTML = `
     ${RANK_LABELS.map((label, i) => `
-      <label>${label} place (${RANK_POINTS[i]} pt${RANK_POINTS[i] === 1 ? '' : 's'})</label>
-      <input type="text" class="finish-rank" data-rank="${i}" placeholder="${i < 5 ? 'Player name' : 'Player name (optional)'}">
+      <label>${label} sıra (${RANK_POINTS[i]} puan)</label>
+      <input type="text" class="finish-rank" data-rank="${i}" placeholder="${i < 5 ? 'Oyuncu adı' : 'Oyuncu adı (isteğe bağlı)'}">
     `).join('')}
-    <label>Highlights &amp; Detailed History</label>
-    <textarea class="finish-highlights" placeholder="What happened? Key moments, betrayals, comebacks, final scores..."></textarea>
-    <label>Photos (optional, multiple allowed)</label>
+    <label>Öne Çıkanlar &amp; Detaylı Tarihçe</label>
+    <textarea class="finish-highlights" placeholder="Ne oldu? Önemli anlar, ihanetler, geri dönüşler, nihai skorlar..."></textarea>
+    <label>Fotoğraflar (isteğe bağlı, birden fazla eklenebilir)</label>
     <input type="file" class="finish-photos" accept="image/*" multiple>
-    <button class="finish-submit-btn" data-id="${gameId}">Save &amp; Complete Game</button>
+    <button class="finish-submit-btn" data-id="${gameId}">Kaydet &amp; Oyunu Tamamla</button>
     <div class="finish-msg"></div>
   `;
 
@@ -215,7 +215,7 @@ async function submitFinishForm(gameId, formEl) {
   });
 
   if (entries.length < 2) {
-    msgEl.textContent = 'Enter at least 2 players.';
+    msgEl.textContent = 'En az 2 oyuncu gir.';
     msgEl.className = 'error';
     return;
   }
@@ -225,7 +225,7 @@ async function submitFinishForm(gameId, formEl) {
 
   const { error: rErr } = await supabaseClient.from('results').insert(entries);
   if (rErr) {
-    msgEl.textContent = 'Failed to save results: ' + rErr.message;
+    msgEl.textContent = 'Sonuçlar kaydedilemedi: ' + rErr.message;
     msgEl.className = 'error';
     return;
   }
@@ -234,7 +234,7 @@ async function submitFinishForm(gameId, formEl) {
     const path = `${gameId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
     const { error: upErr } = await supabaseClient.storage.from('game-images').upload(path, file);
     if (upErr) {
-      msgEl.textContent = 'Photo upload failed: ' + upErr.message;
+      msgEl.textContent = 'Fotoğraf yüklenemedi: ' + upErr.message;
       msgEl.className = 'error';
       return;
     }
@@ -248,12 +248,12 @@ async function submitFinishForm(gameId, formEl) {
     .eq('id', gameId);
 
   if (gErr) {
-    msgEl.textContent = 'Failed to complete game: ' + gErr.message;
+    msgEl.textContent = 'Oyun tamamlanamadı: ' + gErr.message;
     msgEl.className = 'error';
     return;
   }
 
-  msgEl.textContent = 'Game completed!';
+  msgEl.textContent = 'Oyun tamamlandı!';
   msgEl.className = 'success';
   loadInProgressList();
   loadManageList();
@@ -268,27 +268,27 @@ async function loadManageList() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    listEl.innerHTML = `<p class="error">Could not load games.</p>`;
+    listEl.innerHTML = `<p class="error">Oyunlar yüklenemedi.</p>`;
     return;
   }
 
   if (!games || games.length === 0) {
-    listEl.innerHTML = `<p class="muted">No completed games yet.</p>`;
+    listEl.innerHTML = `<p class="muted">Henüz tamamlanmış oyun yok.</p>`;
     return;
   }
 
   listEl.innerHTML = games.map(g => {
     const sorted = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
-    const title = g.name || g.note || `Game on ${g.played_on}`;
+    const title = g.name || g.note || `${g.played_on} tarihli oyun`;
     return `
       <div class="game-card">
         <div class="date">${g.played_on}
-          <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Delete</button>
+          <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Sil</button>
         </div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         <ol>
-          ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
+          ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
         </ol>
         ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
@@ -298,7 +298,7 @@ async function loadManageList() {
 
   document.querySelectorAll('.delete-game').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Delete this game?')) return;
+      if (!confirm('Bu oyun silinsin mi?')) return;
       await supabaseClient.from('games').delete().eq('id', btn.dataset.id);
       loadManageList();
     });
