@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Civ 6 Leaderboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🏛️ Civ 6 Leaderboard</h1>
+  <nav>
+    <a href="index.html" class="active">Leaderboard</a>
+    <a href="rules.html">Rules</a>
+    <a href="admin.html">Admin</a>
+  </nav>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Standings</h2>
+    <p class="muted">Total points across all recorded games.</p>
+    <table id="leaderboard-table">
+      <thead>
+        <tr><th>#</th><th>Player</th><th>Points</th><th>Games</th></tr>
+      </thead>
+      <tbody id="leaderboard-body">
+        <tr><td colspan="4" class="muted">Loading...</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Game History</h2>
+    <div id="history-list" class="muted">Loading...</div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+async function loadData() {
+  const { data: games, error: gErr } = await supabaseClient
+    .from('games')
+    .select('id, played_on, note, results(player_name, rank, points)')
+    .order('played_on', { ascending: false });
+
+  const leaderboardBody = document.getElementById('leaderboard-body');
+  const historyList = document.getElementById('history-list');
+
+  if (gErr) {
+    leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Could not load data. Check config.js is set up.</td></tr>`;
+    historyList.innerHTML = `<p class="error">Could not load data.</p>`;
+    console.error(gErr);
+    return;
+  }
+
+  if (!games || games.length === 0) {
+    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">No games recorded yet.</td></tr>`;
+    historyList.innerHTML = `<p class="muted">No games recorded yet.</p>`;
+    return;
+  }
+
+  // Aggregate totals
+  const totals = {};
+  games.forEach(g => {
+    (g.results || []).forEach(r => {
+      if (!totals[r.player_name]) totals[r.player_name] = { points: 0, games: 0 };
+      totals[r.player_name].points += r.points;
+      totals[r.player_name].games += 1;
+    });
+  });
+
+  const sorted = Object.entries(totals).sort((a, b) => b[1].points - a[1].points);
+
+  leaderboardBody.innerHTML = sorted.map(([name, stats], i) => `
+    <tr class="${i === 0 ? 'rank-1' : ''}">
+      <td>${i + 1}</td>
+      <td>${escapeHtml(name)}</td>
+      <td>${stats.points}</td>
+      <td>${stats.games}</td>
+    </tr>
+  `).join('');
+
+  // Game history
+  historyList.innerHTML = games.map(g => {
+    const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    return `
+      <div class="game-card">
+        <div class="date">${g.played_on}${g.note ? ' — ' + escapeHtml(g.note) : ''}</div>
+        <ol>
+          ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
+        </ol>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadData();
+</script>
+</body>
+</html>

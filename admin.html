@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Civ 6 Leaderboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🏛️ Civ 6 Leaderboard</h1>
+  <nav>
+    <a href="index.html">Leaderboard</a>
+    <a href="rules.html">Rules</a>
+    <a href="admin.html" class="active">Admin</a>
+  </nav>
+</header>
+
+<main>
+  <section class="panel" id="login-panel">
+    <h2>Admin Login</h2>
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="Enter admin password">
+    <button id="login-btn">Log in</button>
+    <div id="login-error" class="error"></div>
+  </section>
+
+  <section class="panel" id="entry-panel" style="display:none;">
+    <h2>Add Game Result</h2>
+    <button class="secondary" id="logout-btn" style="margin-top:0;">Log out</button>
+
+    <label for="played-on">Date</label>
+    <input type="date" id="played-on">
+
+    <label for="note">Note (optional)</label>
+    <input type="text" id="note" placeholder="e.g. Continents map, Epic speed">
+
+    <div id="rank-fields"></div>
+
+    <button id="submit-btn">Save Game</button>
+    <div id="submit-msg"></div>
+  </section>
+
+  <section class="panel" id="manage-panel" style="display:none;">
+    <h2>Recorded Games</h2>
+    <div id="manage-list" class="muted">Loading...</div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const RANK_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
+const RANK_POINTS = [6, 4, 3, 2, 1, 0];
+
+const loginPanel = document.getElementById('login-panel');
+const entryPanel = document.getElementById('entry-panel');
+const managePanel = document.getElementById('manage-panel');
+
+document.getElementById('played-on').value = new Date().toISOString().slice(0, 10);
+
+const rankFields = document.getElementById('rank-fields');
+rankFields.innerHTML = RANK_LABELS.map((label, i) => `
+  <label for="rank-${i}">${label} place (${RANK_POINTS[i]} pt${RANK_POINTS[i] === 1 ? '' : 's'})</label>
+  <input type="text" id="rank-${i}" placeholder="${i < 5 ? 'Player name' : 'Player name (optional)'}">
+`).join('');
+
+async function checkSession() {
+  const { data } = await supabaseClient.auth.getSession();
+  if (data.session) {
+    showAdminPanels();
+  }
+}
+
+function showAdminPanels() {
+  loginPanel.style.display = 'none';
+  entryPanel.style.display = 'block';
+  managePanel.style.display = 'block';
+  loadManageList();
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: ADMIN_EMAIL,
+    password
+  });
+  if (error) {
+    errEl.textContent = 'Incorrect password.';
+    return;
+  }
+  showAdminPanels();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+});
+
+document.getElementById('submit-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('submit-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const playedOn = document.getElementById('played-on').value;
+  const note = document.getElementById('note').value.trim();
+
+  const entries = [];
+  for (let i = 0; i < RANK_LABELS.length; i++) {
+    const name = document.getElementById(`rank-${i}`).value.trim();
+    if (name) entries.push({ player_name: name, rank: i + 1, points: RANK_POINTS[i] });
+  }
+
+  if (entries.length < 2) {
+    msgEl.textContent = 'Enter at least 2 players.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { data: game, error: gErr } = await supabaseClient
+    .from('games')
+    .insert({ played_on: playedOn, note: note || null })
+    .select()
+    .single();
+
+  if (gErr) {
+    msgEl.textContent = 'Failed to save game: ' + gErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  const rows = entries.map(e => ({ ...e, game_id: game.id }));
+  const { error: rErr } = await supabaseClient.from('results').insert(rows);
+
+  if (rErr) {
+    msgEl.textContent = 'Failed to save results: ' + rErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Game saved!';
+  msgEl.className = 'success';
+  RANK_LABELS.forEach((_, i) => document.getElementById(`rank-${i}`).value = '');
+  document.getElementById('note').value = '';
+  loadManageList();
+});
+
+async function loadManageList() {
+  const listEl = document.getElementById('manage-list');
+  const { data: games, error } = await supabaseClient
+    .from('games')
+    .select('id, played_on, note, results(player_name, rank, points)')
+    .order('played_on', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Could not load games.</p>`;
+    return;
+  }
+
+  if (!games || games.length === 0) {
+    listEl.innerHTML = `<p class="muted">No games recorded yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = games.map(g => {
+    const sorted = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    return `
+      <div class="game-card">
+        <div class="date">${g.played_on}${g.note ? ' — ' + escapeHtml(g.note) : ''}
+          <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Delete</button>
+        </div>
+        <ol>
+          ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
+        </ol>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.delete-game').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this game?')) return;
+      await supabaseClient.from('games').delete().eq('id', btn.dataset.id);
+      loadManageList();
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+checkSession();
+</script>
+</body>
+</html>
