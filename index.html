@@ -14,7 +14,6 @@
     <a href="rules.html">Kurallar</a>
     <a href="blog.html">Günce</a>
     <a href="playlist.html">Çalma Listesi</a>
-    <a href="oyuntarihi.html">Oyun Tarihi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
 </header>
@@ -27,8 +26,8 @@
 
 <main>
   <section class="panel">
-    <h2>🏆 Toplam Sıralama</h2>
-    <p class="muted">Yalnızca sıralamaya dahil edilen oyunlardaki toplam puanlar. Oyun kayıtları için <a href="oyuntarihi.html">Oyun Tarihi</a> sayfasına bakabilirsin.</p>
+    <h2>🏆 Sıralama</h2>
+    <p class="muted">Kayıtlı tüm oyunlardaki toplam puanlar.</p>
     <table id="leaderboard-table">
       <thead>
         <tr><th>#</th><th>Oyuncu</th><th>Puan</th><th>Oyun</th></tr>
@@ -40,18 +39,8 @@
   </section>
 
   <section class="panel">
-    <h2>📊 Oyun Bazında Puan Tablosu</h2>
-    <p class="muted">Her sütun bir oyunu, her satır bir oyuncuyu temsil eder. Yalnızca sıralamaya dahil edilen oyunlar gösterilir.</p>
-    <div style="overflow-x:auto;">
-      <table id="matrix-table">
-        <thead id="matrix-head">
-          <tr><th>Oyuncu</th></tr>
-        </thead>
-        <tbody id="matrix-body">
-          <tr><td class="muted">Yükleniyor...</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <h2>📜 Oyun Tarihçesi</h2>
+    <div id="history-list" class="muted">Yükleniyor...</div>
   </section>
 </main>
 
@@ -63,25 +52,23 @@ const MEDALS = ['👑', '🥈', '🥉'];
 async function loadData() {
   const { data: games, error: gErr } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, note, results(player_name, points)')
+    .select('id, played_on, name, description, highlights, note, results(player_name, rank, points), game_images(image_url)')
     .eq('status', 'completed')
-    .eq('is_ranked', true)
-    .order('played_on', { ascending: true });
+    .order('created_at', { ascending: false });
 
   const leaderboardBody = document.getElementById('leaderboard-body');
-  const matrixHead = document.getElementById('matrix-head');
-  const matrixBody = document.getElementById('matrix-body');
+  const historyList = document.getElementById('history-list');
 
   if (gErr) {
     leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Veriler yüklenemedi. config.js dosyasının doğru ayarlandığından emin olun.</td></tr>`;
-    matrixBody.innerHTML = `<tr><td class="error">Veriler yüklenemedi.</td></tr>`;
+    historyList.innerHTML = `<p class="error">Veriler yüklenemedi.</p>`;
     console.error(gErr);
     return;
   }
 
   if (!games || games.length === 0) {
-    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">Sıralamaya dahil, tamamlanmış bir oyun yok.</td></tr>`;
-    matrixBody.innerHTML = `<tr><td class="muted">Sıralamaya dahil, tamamlanmış bir oyun yok.</td></tr>`;
+    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">Henüz kayıtlı oyun yok.</td></tr>`;
+    historyList.innerHTML = `<p class="muted">Henüz kayıtlı oyun yok.</p>`;
     return;
   }
 
@@ -95,10 +82,9 @@ async function loadData() {
     });
   });
 
-  const sortedPlayers = Object.entries(totals).sort((a, b) => b[1].points - a[1].points);
+  const sorted = Object.entries(totals).sort((a, b) => b[1].points - a[1].points);
 
-  // Tablo 1: Toplam Sıralama
-  leaderboardBody.innerHTML = sortedPlayers.map(([name, stats], i) => `
+  leaderboardBody.innerHTML = sorted.map(([name, stats], i) => `
     <tr class="${i < 3 ? 'rank-' + (i + 1) : ''}">
       <td>${i + 1}</td>
       <td>${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}${escapeHtml(name)}</td>
@@ -107,28 +93,22 @@ async function loadData() {
     </tr>
   `).join('');
 
-  // Tablo 2: Oyun Bazında Puan Tablosu (matris)
-  const gamesWithTitles = games.map(g => ({
-    id: g.id,
-    title: g.name || g.note || `${g.played_on} tarihli oyun`,
-    played_on: g.played_on,
-    results: g.results || []
-  }));
-
-  matrixHead.innerHTML = `
-    <tr>
-      <th>Oyuncu</th>
-      ${gamesWithTitles.map(g => `<th>${escapeHtml(g.title)}<br><span style="font-weight:normal;font-size:0.75em;" class="muted">${g.played_on}</span></th>`).join('')}
-      <th>Toplam</th>
-    </tr>
-  `;
-
-  matrixBody.innerHTML = sortedPlayers.map(([name, stats]) => {
-    const cells = gamesWithTitles.map(g => {
-      const result = g.results.find(r => r.player_name === name);
-      return `<td>${result ? result.points : '<span class="muted">–</span>'}</td>`;
-    }).join('');
-    return `<tr><td>${escapeHtml(name)}</td>${cells}<td><strong>${stats.points}</strong></td></tr>`;
+  // Oyun tarihçesi
+  historyList.innerHTML = games.map(g => {
+    const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    const title = g.name || g.note || `${g.played_on} tarihli oyun`;
+    return `
+      <div class="game-card">
+        <div class="date">${g.played_on}</div>
+        <h3 style="margin:0.2rem 0 0.5rem;">${escapeHtml(title)}</h3>
+        ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
+        <ol>
+          ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
+        </ol>
+        ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
+        ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
+      </div>
+    `;
   }).join('');
 }
 
