@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playlist — Civ 6 Leaderboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+<h1>🏛️ Civ 6 Leaderboard</h1>
+<nav>
+<a href="index.html">Leaderboard</a>
+<a href="rules.html">Rules</a>
+<a href="blog.html">Blog</a>
+<a href="playlist.html" class="active">Playlist</a>
+<a href="admin.html">Admin</a>
+</nav>
+</header>
+
+<div class="hero-banner">
+<div class="crest">🎶</div>
+<h1>The Royal Jukebox</h1>
+<p>Songs to conquer civilizations by. Add your anthem below.</p>
+</div>
+
+<main>
+<section class="panel" id="account-panel">
+<div class="tab-row" id="auth-tabs">
+<button id="tab-login">Log In</button>
+<button id="tab-signup" class="inactive">Create Account</button>
+</div>
+
+<div id="login-form">
+<h2>🔑 Log In</h2>
+<label for="login-username">Username</label>
+<input type="text" id="login-username" placeholder="Your username">
+<label for="login-password">Password</label>
+<input type="password" id="login-password" placeholder="Your password">
+<button id="login-btn">Log In</button>
+<div id="login-msg"></div>
+</div>
+
+<div id="signup-form" style="display:none;">
+<h2>📝 Create Account</h2>
+<label for="signup-username">Choose a username</label>
+<input type="text" id="signup-username" placeholder="e.g. Alperen">
+<label for="signup-password">Choose a password</label>
+<input type="password" id="signup-password" placeholder="At least 6 characters">
+<button id="signup-btn">Create Account</button>
+<div id="signup-msg"></div>
+</div>
+
+<div id="claim-username-form" style="display:none;">
+<h2>🏷️ Choose a Username</h2>
+<p class="muted">You're logged in but haven't picked a username yet.</p>
+<label for="claim-username">Username</label>
+<input type="text" id="claim-username" placeholder="e.g. Alperen">
+<button id="claim-btn">Save Username</button>
+<button class="secondary" id="claim-logout-btn">Log Out Instead</button>
+<div id="claim-msg"></div>
+</div>
+
+<div id="logged-in-panel" style="display:none;">
+<p><span class="pill">🎶 Logged in as <strong id="current-username"></strong></span></p>
+<button class="secondary" id="logout-btn">Log Out</button>
+</div>
+</section>
+
+<section class="panel" id="compose-panel" style="display:none;">
+<h2>➕ Add a Song</h2>
+<label for="song-name">Song / Track Name</label>
+<input type="text" id="song-name" placeholder="e.g. Baba Yetu">
+<label for="song-url">Link (optional, YouTube preferred)</label>
+<input type="text" id="song-url" placeholder="https://www.youtube.com/watch?v=...">
+<button id="song-submit-btn">Add to Playlist</button>
+<div id="song-msg"></div>
+</section>
+
+<section class="panel">
+<h2>📜 Current Playlist</h2>
+<div id="playlist-list" class="muted">Loading...</div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const EMAIL_DOMAIN = 'civ6players.local';
+let currentUser = null;
+let currentUsername = null;
+
+function usernameToEmail(username) {
+  const safe = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+  return `${safe}@${EMAIL_DOMAIN}`;
+}
+
+const tabLogin = document.getElementById('tab-login');
+const tabSignup = document.getElementById('tab-signup');
+const loginForm = document.getElementById('login-form');
+const signupForm = document.getElementById('signup-form');
+const claimForm = document.getElementById('claim-username-form');
+const loggedInPanel = document.getElementById('logged-in-panel');
+const composePanel = document.getElementById('compose-panel');
+const authTabs = document.getElementById('auth-tabs');
+
+tabLogin.addEventListener('click', () => {
+  tabLogin.classList.remove('inactive');
+  tabSignup.classList.add('inactive');
+  loginForm.style.display = 'block';
+  signupForm.style.display = 'none';
+});
+
+tabSignup.addEventListener('click', () => {
+  tabSignup.classList.remove('inactive');
+  tabLogin.classList.add('inactive');
+  signupForm.style.display = 'block';
+  loginForm.style.display = 'none';
+});
+
+async function refreshAuthState() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if (!session) {
+    currentUser = null;
+    currentUsername = null;
+    authTabs.style.display = 'flex';
+    loginForm.style.display = 'block';
+    signupForm.style.display = 'none';
+    claimForm.style.display = 'none';
+    loggedInPanel.style.display = 'none';
+    composePanel.style.display = 'none';
+    return;
+  }
+
+  currentUser = session.user;
+
+  const { data: profile } = await supabaseClient
+    .from('profiles')
+    .select('username')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+
+  authTabs.style.display = 'none';
+  loginForm.style.display = 'none';
+  signupForm.style.display = 'none';
+
+  if (!profile) {
+    claimForm.style.display = 'block';
+    loggedInPanel.style.display = 'none';
+    composePanel.style.display = 'none';
+    return;
+  }
+
+  currentUsername = profile.username;
+  claimForm.style.display = 'none';
+  loggedInPanel.style.display = 'block';
+  document.getElementById('current-username').textContent = currentUsername;
+  composePanel.style.display = 'block';
+}
+
+document.getElementById('signup-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('signup-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const username = document.getElementById('signup-username').value.trim();
+  const password = document.getElementById('signup-password').value;
+
+  if (!username || username.length < 2) {
+    msgEl.textContent = 'Choose a username with at least 2 characters.';
+    msgEl.className = 'error';
+    return;
+  }
+  if (!password || password.length < 6) {
+    msgEl.textContent = 'Password must be at least 6 characters.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { data: existing } = await supabaseClient
+    .from('profiles')
+    .select('username')
+    .ilike('username', username)
+    .maybeSingle();
+
+  if (existing) {
+    msgEl.textContent = 'That username is already taken.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { data: signUpData, error: signUpErr } = await supabaseClient.auth.signUp({
+    email: usernameToEmail(username),
+    password
+  });
+
+  if (signUpErr) {
+    msgEl.textContent = signUpErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  const userId = signUpData.user?.id;
+  if (userId) {
+    const { error: profileErr } = await supabaseClient
+      .from('profiles')
+      .insert({ id: userId, username });
+
+    if (profileErr) {
+      msgEl.textContent = 'Account created but username could not be saved: ' + profileErr.message;
+      msgEl.className = 'error';
+      return;
+    }
+  }
+
+  msgEl.textContent = 'Account created! You are now logged in.';
+  msgEl.className = 'success';
+  await refreshAuthState();
+});
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('login-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: usernameToEmail(username),
+    password
+  });
+
+  if (error) {
+    msgEl.textContent = 'Incorrect username or password.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  await refreshAuthState();
+});
+
+document.getElementById('claim-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('claim-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const username = document.getElementById('claim-username').value.trim();
+  if (!username || username.length < 2) {
+    msgEl.textContent = 'Choose a username with at least 2 characters.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { data: existing } = await supabaseClient
+    .from('profiles')
+    .select('username')
+    .ilike('username', username)
+    .maybeSingle();
+
+  if (existing) {
+    msgEl.textContent = 'That username is already taken.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('profiles')
+    .insert({ id: currentUser.id, username });
+
+  if (error) {
+    msgEl.textContent = error.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  await refreshAuthState();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+});
+
+document.getElementById('claim-logout-btn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+});
+
+document.getElementById('song-submit-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('song-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const nameInput = document.getElementById('song-name');
+  const urlInput = document.getElementById('song-url');
+  const songName = nameInput.value.trim();
+  const songUrl = urlInput.value.trim();
+
+  if (!songName) {
+    msgEl.textContent = 'Give the song a name.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { error } = await supabaseClient.from('playlist_songs').insert({
+    author_id: currentUser.id,
+    author_name: currentUsername,
+    song_name: songName,
+    song_url: songUrl || null
+  });
+
+  if (error) {
+    msgEl.textContent = 'Failed to add song: ' + error.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Added to the playlist!';
+  msgEl.className = 'success';
+  nameInput.value = '';
+  urlInput.value = '';
+  loadPlaylist();
+});
+
+function getYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+async function loadPlaylist() {
+  const listEl = document.getElementById('playlist-list');
+
+  const { data: songs, error } = await supabaseClient
+    .from('playlist_songs')
+    .select('id, song_name, song_url, author_name, author_id, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Could not load the playlist.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!songs || songs.length === 0) {
+    listEl.innerHTML = `<p class="muted">No songs yet. Be the first to add one!</p>`;
+    return;
+  }
+
+  listEl.innerHTML = songs.map(s => {
+    const date = new Date(s.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    const canDelete = currentUser && s.author_id === currentUser.id;
+    const ytId = getYouTubeId(s.song_url);
+
+    let media = '';
+    if (ytId) {
+      media = `<a href="${escapeHtml(s.song_url)}" target="_blank" rel="noopener">
+        <img class="post-image" src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="">
+      </a>`;
+    } else if (s.song_url) {
+      media = `<p><a href="${escapeHtml(s.song_url)}" target="_blank" rel="noopener">🔗 Listen</a></p>`;
+    }
+
+    return `
+      <div class="post-card">
+        ${canDelete ? `<button class="delete-song" data-id="${s.id}">Delete</button>` : ''}
+        <h3>${escapeHtml(s.song_name)}</h3>
+        <div class="post-meta">Added by ${escapeHtml(s.author_name || 'Unknown')} · ${date}</div>
+        ${media}
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.delete-song').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Remove this song from the playlist?')) return;
+      await supabaseClient.from('playlist_songs').delete().eq('id', btn.dataset.id);
+      loadPlaylist();
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+refreshAuthState();
+loadPlaylist();
+</script>
+</body>
+</html>
