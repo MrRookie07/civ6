@@ -51,8 +51,9 @@ const MEDALS = ['👑', '🥈', '🥉'];
 async function loadData() {
   const { data: games, error: gErr } = await supabaseClient
     .from('games')
-    .select('id, played_on, note, results(player_name, rank, points)')
-    .order('played_on', { ascending: false });
+    .select('id, played_on, name, description, highlights, note, results(player_name, rank, points), game_images(image_url)')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false });
 
   const leaderboardBody = document.getElementById('leaderboard-body');
   const historyList = document.getElementById('history-list');
@@ -94,12 +95,17 @@ async function loadData() {
   // Game history
   historyList.innerHTML = games.map(g => {
     const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    const title = g.name || g.note || `Game on ${g.played_on}`;
     return `
       <div class="game-card">
-        <div class="date">${g.played_on}${g.note ? ' — ' + escapeHtml(g.note) : ''}</div>
+        <div class="date">${g.played_on}</div>
+        <h3 style="margin:0.2rem 0 0.5rem;">${escapeHtml(title)}</h3>
+        ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         <ol>
           ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
         </ol>
+        ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
+        ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
       </div>
     `;
   }).join('');

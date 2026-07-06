@@ -269,6 +269,17 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   letter-spacing: 0.03em;
 }
 
+.game-card h3 {
+  color: var(--accent);
+  font-family: "Cinzel", serif;
+  font-size: 1.1rem;
+}
+
+.finish-form {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+
 .game-card ol {
   margin: 0;
   padding-left: 1.3rem;

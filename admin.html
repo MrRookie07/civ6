@@ -32,20 +32,26 @@
     <div id="login-error" class="error"></div>
   </section>
 
-  <section class="panel" id="entry-panel" style="display:none;">
-    <h2>🏆 Add Game Result</h2>
+  <section class="panel" id="new-game-panel" style="display:none;">
+    <h2>🚩 Start a New Game</h2>
     <button class="secondary" id="logout-btn" style="margin-top:0;">Log out</button>
 
-    <label for="played-on">Date</label>
-    <input type="date" id="played-on">
+    <label for="game-date">Date</label>
+    <input type="date" id="game-date">
 
-    <label for="note">Note (optional)</label>
-    <input type="text" id="note" placeholder="e.g. Continents map, Epic speed">
+    <label for="game-name">Game Name</label>
+    <input type="text" id="game-name" placeholder="e.g. The Great War of 2026">
 
-    <div id="rank-fields"></div>
+    <label for="game-description">Description (optional)</label>
+    <textarea id="game-description" placeholder="Map type, speed, ruleset, anything worth noting before the game starts..."></textarea>
 
-    <button id="submit-btn">Save Game</button>
-    <div id="submit-msg"></div>
+    <button id="start-game-btn">Start Game</button>
+    <div id="start-game-msg"></div>
+  </section>
+
+  <section class="panel" id="in-progress-panel" style="display:none;">
+    <h2>⏳ In-Progress Games</h2>
+    <div id="in-progress-list" class="muted">Loading...</div>
   </section>
 
   <section class="panel" id="manage-panel" style="display:none;">
@@ -61,16 +67,11 @@ const RANK_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
 const RANK_POINTS = [6, 4, 3, 2, 1, 0];
 
 const loginPanel = document.getElementById('login-panel');
-const entryPanel = document.getElementById('entry-panel');
+const newGamePanel = document.getElementById('new-game-panel');
+const inProgressPanel = document.getElementById('in-progress-panel');
 const managePanel = document.getElementById('manage-panel');
 
-document.getElementById('played-on').value = new Date().toISOString().slice(0, 10);
-
-const rankFields = document.getElementById('rank-fields');
-rankFields.innerHTML = RANK_LABELS.map((label, i) => `
-  <label for="rank-${i}">${label} place (${RANK_POINTS[i]} pt${RANK_POINTS[i] === 1 ? '' : 's'})</label>
-  <input type="text" id="rank-${i}" placeholder="${i < 5 ? 'Player name' : 'Player name (optional)'}">
-`).join('');
+document.getElementById('game-date').value = new Date().toISOString().slice(0, 10);
 
 async function checkSession() {
   const { data } = await supabaseClient.auth.getSession();
@@ -81,8 +82,10 @@ async function checkSession() {
 
 function showAdminPanels() {
   loginPanel.style.display = 'none';
-  entryPanel.style.display = 'block';
+  newGamePanel.style.display = 'block';
+  inProgressPanel.style.display = 'block';
   managePanel.style.display = 'block';
+  loadInProgressList();
   loadManageList();
 }
 
@@ -106,19 +109,109 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   location.reload();
 });
 
-document.getElementById('submit-btn').addEventListener('click', async () => {
-  const msgEl = document.getElementById('submit-msg');
+document.getElementById('start-game-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('start-game-msg');
   msgEl.textContent = '';
   msgEl.className = '';
 
-  const playedOn = document.getElementById('played-on').value;
-  const note = document.getElementById('note').value.trim();
+  const playedOn = document.getElementById('game-date').value;
+  const name = document.getElementById('game-name').value.trim();
+  const description = document.getElementById('game-description').value.trim();
+
+  if (!name) {
+    msgEl.textContent = 'Give the game a name.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { error } = await supabaseClient.from('games').insert({
+    played_on: playedOn,
+    name,
+    description: description || null,
+    status: 'in_progress'
+  });
+
+  if (error) {
+    msgEl.textContent = 'Failed to start game: ' + error.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Game started! Add results below once it finishes.';
+  msgEl.className = 'success';
+  document.getElementById('game-name').value = '';
+  document.getElementById('game-description').value = '';
+  loadInProgressList();
+});
+
+async function loadInProgressList() {
+  const listEl = document.getElementById('in-progress-list');
+  const { data: games, error } = await supabaseClient
+    .from('games')
+    .select('id, played_on, name, description')
+    .eq('status', 'in_progress')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Could not load in-progress games.</p>`;
+    return;
+  }
+
+  if (!games || games.length === 0) {
+    listEl.innerHTML = `<p class="muted">No games in progress. Start one above.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = games.map(g => `
+    <div class="game-card">
+      <div class="date">${g.played_on} · <span class="pill">In Progress</span></div>
+      <h3 style="margin:0.3rem 0;">${escapeHtml(g.name)}</h3>
+      ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
+      <button class="finish-game-btn" data-id="${g.id}">Finish Game</button>
+      <div class="finish-form" id="finish-form-${g.id}" style="display:none; margin-top:1rem;"></div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.finish-game-btn').forEach(btn => {
+    btn.addEventListener('click', () => openFinishForm(btn.dataset.id));
+  });
+}
+
+function openFinishForm(gameId) {
+  const formEl = document.getElementById(`finish-form-${gameId}`);
+  if (formEl.style.display === 'block') {
+    formEl.style.display = 'none';
+    return;
+  }
+
+  formEl.style.display = 'block';
+  formEl.innerHTML = `
+    ${RANK_LABELS.map((label, i) => `
+      <label>${label} place (${RANK_POINTS[i]} pt${RANK_POINTS[i] === 1 ? '' : 's'})</label>
+      <input type="text" class="finish-rank" data-rank="${i}" placeholder="${i < 5 ? 'Player name' : 'Player name (optional)'}">
+    `).join('')}
+    <label>Highlights &amp; Detailed History</label>
+    <textarea class="finish-highlights" placeholder="What happened? Key moments, betrayals, comebacks, final scores..."></textarea>
+    <label>Photos (optional, multiple allowed)</label>
+    <input type="file" class="finish-photos" accept="image/*" multiple>
+    <button class="finish-submit-btn" data-id="${gameId}">Save &amp; Complete Game</button>
+    <div class="finish-msg"></div>
+  `;
+
+  formEl.querySelector('.finish-submit-btn').addEventListener('click', () => submitFinishForm(gameId, formEl));
+}
+
+async function submitFinishForm(gameId, formEl) {
+  const msgEl = formEl.querySelector('.finish-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
 
   const entries = [];
-  for (let i = 0; i < RANK_LABELS.length; i++) {
-    const name = document.getElementById(`rank-${i}`).value.trim();
-    if (name) entries.push({ player_name: name, rank: i + 1, points: RANK_POINTS[i] });
-  }
+  formEl.querySelectorAll('.finish-rank').forEach(input => {
+    const name = input.value.trim();
+    const rank = parseInt(input.dataset.rank, 10);
+    if (name) entries.push({ player_name: name, rank: rank + 1, points: RANK_POINTS[rank], game_id: gameId });
+  });
 
   if (entries.length < 2) {
     msgEl.textContent = 'Enter at least 2 players.';
@@ -126,40 +219,52 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
     return;
   }
 
-  const { data: game, error: gErr } = await supabaseClient
-    .from('games')
-    .insert({ played_on: playedOn, note: note || null })
-    .select()
-    .single();
+  const highlights = formEl.querySelector('.finish-highlights').value.trim();
+  const files = formEl.querySelector('.finish-photos').files;
 
-  if (gErr) {
-    msgEl.textContent = 'Failed to save game: ' + gErr.message;
-    msgEl.className = 'error';
-    return;
-  }
-
-  const rows = entries.map(e => ({ ...e, game_id: game.id }));
-  const { error: rErr } = await supabaseClient.from('results').insert(rows);
-
+  const { error: rErr } = await supabaseClient.from('results').insert(entries);
   if (rErr) {
     msgEl.textContent = 'Failed to save results: ' + rErr.message;
     msgEl.className = 'error';
     return;
   }
 
-  msgEl.textContent = 'Game saved!';
+  for (const file of files) {
+    const path = `${gameId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const { error: upErr } = await supabaseClient.storage.from('game-images').upload(path, file);
+    if (upErr) {
+      msgEl.textContent = 'Photo upload failed: ' + upErr.message;
+      msgEl.className = 'error';
+      return;
+    }
+    const { data: publicUrlData } = supabaseClient.storage.from('game-images').getPublicUrl(path);
+    await supabaseClient.from('game_images').insert({ game_id: gameId, image_url: publicUrlData.publicUrl });
+  }
+
+  const { error: gErr } = await supabaseClient
+    .from('games')
+    .update({ status: 'completed', highlights: highlights || null })
+    .eq('id', gameId);
+
+  if (gErr) {
+    msgEl.textContent = 'Failed to complete game: ' + gErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Game completed!';
   msgEl.className = 'success';
-  RANK_LABELS.forEach((_, i) => document.getElementById(`rank-${i}`).value = '');
-  document.getElementById('note').value = '';
+  loadInProgressList();
   loadManageList();
-});
+}
 
 async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, note, results(player_name, rank, points)')
-    .order('played_on', { ascending: false });
+    .select('id, played_on, name, description, highlights, note, results(player_name, rank, points), game_images(image_url)')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false });
 
   if (error) {
     listEl.innerHTML = `<p class="error">Could not load games.</p>`;
@@ -167,20 +272,25 @@ async function loadManageList() {
   }
 
   if (!games || games.length === 0) {
-    listEl.innerHTML = `<p class="muted">No games recorded yet.</p>`;
+    listEl.innerHTML = `<p class="muted">No completed games yet.</p>`;
     return;
   }
 
   listEl.innerHTML = games.map(g => {
     const sorted = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    const title = g.name || g.note || `Game on ${g.played_on}`;
     return `
       <div class="game-card">
-        <div class="date">${g.played_on}${g.note ? ' — ' + escapeHtml(g.note) : ''}
+        <div class="date">${g.played_on}
           <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Delete</button>
         </div>
+        <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
+        ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         <ol>
           ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} pt${r.points === 1 ? '' : 's'}</li>`).join('')}
         </ol>
+        ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
+        ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
       </div>
     `;
   }).join('');
