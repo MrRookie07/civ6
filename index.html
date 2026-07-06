@@ -12,13 +12,20 @@
   <nav>
     <a href="index.html" class="active">Leaderboard</a>
     <a href="rules.html">Rules</a>
+    <a href="blog.html">Blog</a>
     <a href="admin.html">Admin</a>
   </nav>
 </header>
 
+<div class="hero-banner">
+  <div class="crest">👑</div>
+  <h1>Hall of Fame</h1>
+  <p>Glory to the civilization that rises above all others.</p>
+</div>
+
 <main>
   <section class="panel">
-    <h2>Standings</h2>
+    <h2>🏆 Standings</h2>
     <p class="muted">Total points across all recorded games.</p>
     <table id="leaderboard-table">
       <thead>
@@ -31,7 +38,7 @@
   </section>
 
   <section class="panel">
-    <h2>Game History</h2>
+    <h2>📜 Game History</h2>
     <div id="history-list" class="muted">Loading...</div>
   </section>
 </main>
@@ -39,6 +46,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
+const MEDALS = ['👑', '🥈', '🥉'];
+
 async function loadData() {
   const { data: games, error: gErr } = await supabaseClient
     .from('games')
@@ -74,9 +83,9 @@ async function loadData() {
   const sorted = Object.entries(totals).sort((a, b) => b[1].points - a[1].points);
 
   leaderboardBody.innerHTML = sorted.map(([name, stats], i) => `
-    <tr class="${i === 0 ? 'rank-1' : ''}">
+    <tr class="${i < 3 ? 'rank-' + (i + 1) : ''}">
       <td>${i + 1}</td>
-      <td>${escapeHtml(name)}</td>
+      <td>${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}${escapeHtml(name)}</td>
       <td>${stats.points}</td>
       <td>${stats.games}</td>
     </tr>

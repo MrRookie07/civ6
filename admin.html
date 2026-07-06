@@ -12,13 +12,20 @@
   <nav>
     <a href="index.html">Leaderboard</a>
     <a href="rules.html">Rules</a>
+    <a href="blog.html">Blog</a>
     <a href="admin.html" class="active">Admin</a>
   </nav>
 </header>
 
+<div class="hero-banner">
+  <div class="crest">⚔️</div>
+  <h1>Council Chamber</h1>
+  <p>Only the admin may record the outcome of battle.</p>
+</div>
+
 <main>
   <section class="panel" id="login-panel">
-    <h2>Admin Login</h2>
+    <h2>🔑 Admin Login</h2>
     <label for="password">Password</label>
     <input type="password" id="password" placeholder="Enter admin password">
     <button id="login-btn">Log in</button>
@@ -26,7 +33,7 @@
   </section>
 
   <section class="panel" id="entry-panel" style="display:none;">
-    <h2>Add Game Result</h2>
+    <h2>🏆 Add Game Result</h2>
     <button class="secondary" id="logout-btn" style="margin-top:0;">Log out</button>
 
     <label for="played-on">Date</label>
@@ -42,7 +49,7 @@
   </section>
 
   <section class="panel" id="manage-panel" style="display:none;">
-    <h2>Recorded Games</h2>
+    <h2>📜 Recorded Games</h2>
     <div id="manage-list" class="muted">Loading...</div>
   </section>
 </main>
