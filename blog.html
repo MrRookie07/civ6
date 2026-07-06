@@ -56,6 +56,7 @@
       <label for="claim-username">Username</label>
       <input type="text" id="claim-username" placeholder="e.g. Alperen">
       <button id="claim-btn">Save Username</button>
+      <button class="secondary" id="claim-logout-btn">Log Out Instead</button>
       <div id="claim-msg"></div>
     </div>
 
@@ -282,6 +283,11 @@ document.getElementById('claim-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+});
+
+document.getElementById('claim-logout-btn').addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   location.reload();
 });
