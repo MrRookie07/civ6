@@ -474,3 +474,50 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
 .house-rules li:last-child {
   margin-bottom: 0;
 }
+
+/* Meydan (entries feed) */
+#entry-body {
+  min-height: 70px;
+}
+
+.entry-compose-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+}
+
+.entry-compose-footer button {
+  margin-top: 0;
+}
+
+.entry-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 0.7rem;
+  background: rgba(255,255,255,0.015);
+}
+
+.entry-card .entry-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.4rem;
+  font-style: italic;
+}
+
+.entry-card .entry-body {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.entry-delete-btn {
+  float: right;
+  margin-top: 0;
+  background: transparent;
+  border: 1px solid #7a3030;
+  color: #e07a7a;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  box-shadow: none;
+}
