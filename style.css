@@ -374,6 +374,11 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   letter-spacing: 0.04em;
 }
 
+.pill.dim {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
 #delete-post {
   float: right;
   margin-top: 0;
@@ -383,4 +388,19 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
   box-shadow: none;
+}
+
+/* Score matrix table */
+.table-scroll {
+  overflow-x: auto;
+}
+
+#matrix-table th, #matrix-table td {
+  white-space: nowrap;
+}
+
+#matrix-table td:first-child, #matrix-table th:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
 }

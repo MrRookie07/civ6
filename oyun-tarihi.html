@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oyun Tarihi — Civ 6 Şeref Listesi</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  <nav>
+    <a href="index.html">Şeref Listesi</a>
+    <a href="oyun-tarihi.html" class="active">Oyun Tarihi</a>
+    <a href="rules.html">Kurallar</a>
+    <a href="blog.html">Günce</a>
+    <a href="playlist.html">Çalma Listesi</a>
+    <a href="admin.html">Yönetim</a>
+  </nav>
+</header>
+
+<div class="hero-banner">
+  <div class="crest">📜</div>
+  <h1>Oyun Tarihi</h1>
+  <p>Bu masada oynanmış tüm oyunların tam kaydı — dereceli ya da değil.</p>
+</div>
+
+<main>
+  <section class="panel">
+    <h2>🗺️ Tüm Oyunlar</h2>
+    <div id="history-list" class="muted">Yükleniyor...</div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+async function loadGames() {
+  const listEl = document.getElementById('history-list');
+
+  const { data: games, error } = await supabaseClient
+    .from('games')
+    .select('id, played_on, name, description, highlights, note, status, ranked, results(player_name, rank, points), game_images(image_url)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Oyunlar yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!games || games.length === 0) {
+    listEl.innerHTML = `<p class="muted">Henüz kayıtlı oyun yok.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = games.map(g => {
+    const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+    const title = g.name || g.note || `${g.played_on} tarihli oyun`;
+    const statusPill = g.status === 'completed'
+      ? '<span class="pill">Tamamlandı</span>'
+      : '<span class="pill">Devam Ediyor</span>';
+    const rankedPill = g.ranked
+      ? '<span class="pill">Dereceli</span>'
+      : '<span class="pill dim">Derecesiz</span>';
+    return `
+      <div class="game-card">
+        <div class="date">${g.played_on} · ${statusPill} ${rankedPill}</div>
+        <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
+        ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
+        ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : ''}
+        ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
+        ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadGames();
+</script>
+</body>
+</html>

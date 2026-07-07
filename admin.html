@@ -11,8 +11,9 @@
   <h1>🏛️ Civ 6 Şeref Listesi</h1>
   <nav>
     <a href="index.html">Şeref Listesi</a>
+    <a href="oyun-tarihi.html">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
+    <a href="blog.html">Günce</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html" class="active">Yönetim</a>
   </nav>
@@ -46,6 +47,11 @@
     <label for="game-description">Açıklama (isteğe bağlı)</label>
     <textarea id="game-description" placeholder="Harita türü, hız, kural seti — oyun başlamadan önce belirtilmesi gereken her şey..."></textarea>
 
+    <div class="checkbox-row">
+      <input type="checkbox" id="game-ranked" checked>
+      <label for="game-ranked">Dereceli oyun (şeref listesine sayılsın)</label>
+    </div>
+
     <button id="start-game-btn">Oyunu Başlat</button>
     <div id="start-game-msg"></div>
   </section>
@@ -66,6 +72,7 @@
 <script>
 const RANK_LABELS = ['1.', '2.', '3.', '4.', '5.', '6.'];
 const RANK_POINTS = [6, 4, 3, 2, 1, 0];
+const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
 
 const loginPanel = document.getElementById('login-panel');
 const newGamePanel = document.getElementById('new-game-panel');
@@ -118,6 +125,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   const playedOn = document.getElementById('game-date').value;
   const name = document.getElementById('game-name').value.trim();
   const description = document.getElementById('game-description').value.trim();
+  const ranked = document.getElementById('game-ranked').checked;
 
   if (!name) {
     msgEl.textContent = 'Oyuna bir isim ver.';
@@ -129,7 +137,8 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
     played_on: playedOn,
     name,
     description: description || null,
-    status: 'in_progress'
+    status: 'in_progress',
+    ranked
   });
 
   if (error) {
@@ -142,6 +151,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   msgEl.className = 'success';
   document.getElementById('game-name').value = '';
   document.getElementById('game-description').value = '';
+  document.getElementById('game-ranked').checked = true;
   loadInProgressList();
 });
 
@@ -149,7 +159,7 @@ async function loadInProgressList() {
   const listEl = document.getElementById('in-progress-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description')
+    .select('id, played_on, name, description, ranked')
     .eq('status', 'in_progress')
     .order('created_at', { ascending: false });
 
@@ -165,7 +175,10 @@ async function loadInProgressList() {
 
   listEl.innerHTML = games.map(g => `
     <div class="game-card">
-      <div class="date">${g.played_on} · <span class="pill">Devam Ediyor</span></div>
+      <div class="date">
+        ${g.played_on} · <span class="pill">Devam Ediyor</span> <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
+        <button data-id="${g.id}" data-ranked="${g.ranked}" class="toggle-ranked" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+      </div>
       <h3 style="margin:0.3rem 0;">${escapeHtml(g.name)}</h3>
       ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
       <button class="finish-game-btn" data-id="${g.id}">Oyunu Bitir</button>
@@ -175,6 +188,15 @@ async function loadInProgressList() {
 
   document.querySelectorAll('.finish-game-btn').forEach(btn => {
     btn.addEventListener('click', () => openFinishForm(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.toggle-ranked').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newRanked = btn.dataset.ranked !== 'true';
+      await supabaseClient.from('games').update({ ranked: newRanked }).eq('id', btn.dataset.id);
+      loadInProgressList();
+      loadManageList();
+    });
   });
 }
 
@@ -189,7 +211,10 @@ function openFinishForm(gameId) {
   formEl.innerHTML = `
     ${RANK_LABELS.map((label, i) => `
       <label>${label} sıra (${RANK_POINTS[i]} puan)</label>
-      <input type="text" class="finish-rank" data-rank="${i}" placeholder="${i < 5 ? 'Oyuncu adı' : 'Oyuncu adı (isteğe bağlı)'}">
+      <select class="finish-rank" data-rank="${i}">
+        <option value="">— Seç —</option>
+        ${ROSTER.map(p => `<option value="${p}">${p}</option>`).join('')}
+      </select>
     `).join('')}
     <label>Öne Çıkanlar &amp; Detaylı Tarihçe</label>
     <textarea class="finish-highlights" placeholder="Ne oldu? Önemli anlar, ihanetler, geri dönüşler, nihai skorlar..."></textarea>
@@ -207,15 +232,28 @@ async function submitFinishForm(gameId, formEl) {
   msgEl.textContent = '';
   msgEl.className = '';
 
+  const selected = [];
   const entries = [];
-  formEl.querySelectorAll('.finish-rank').forEach(input => {
-    const name = input.value.trim();
-    const rank = parseInt(input.dataset.rank, 10);
-    if (name) entries.push({ player_name: name, rank: rank + 1, points: RANK_POINTS[rank], game_id: gameId });
+  let duplicate = false;
+
+  formEl.querySelectorAll('.finish-rank').forEach(sel => {
+    const name = sel.value;
+    const rank = parseInt(sel.dataset.rank, 10);
+    if (name) {
+      if (selected.includes(name)) duplicate = true;
+      selected.push(name);
+      entries.push({ player_name: name, rank: rank + 1, points: RANK_POINTS[rank], game_id: gameId });
+    }
   });
 
+  if (duplicate) {
+    msgEl.textContent = 'Bir oyuncu birden fazla sırada seçilemez.';
+    msgEl.className = 'error';
+    return;
+  }
+
   if (entries.length < 2) {
-    msgEl.textContent = 'En az 2 oyuncu gir.';
+    msgEl.textContent = 'En az 2 oyuncu seç.';
     msgEl.className = 'error';
     return;
   }
@@ -263,7 +301,7 @@ async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, results(player_name, rank, points), game_images(image_url)')
+    .select('id, played_on, name, description, highlights, note, ranked, results(player_name, rank, points), game_images(image_url)')
     .eq('status', 'completed')
     .order('created_at', { ascending: false });
 
@@ -282,8 +320,10 @@ async function loadManageList() {
     const title = g.name || g.note || `${g.played_on} tarihli oyun`;
     return `
       <div class="game-card">
-        <div class="date">${g.played_on}
+        <div class="date">
+          ${g.played_on} · <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
           <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Sil</button>
+          <button data-id="${g.id}" data-ranked="${g.ranked}" class="toggle-ranked" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;margin-right:0.4rem;">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
         </div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
@@ -300,6 +340,15 @@ async function loadManageList() {
     btn.addEventListener('click', async () => {
       if (!confirm('Bu oyun silinsin mi?')) return;
       await supabaseClient.from('games').delete().eq('id', btn.dataset.id);
+      loadManageList();
+    });
+  });
+
+  document.querySelectorAll('.toggle-ranked').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newRanked = btn.dataset.ranked !== 'true';
+      await supabaseClient.from('games').update({ ranked: newRanked }).eq('id', btn.dataset.id);
+      loadInProgressList();
       loadManageList();
     });
   });

@@ -11,8 +11,9 @@
   <h1>🏛️ Civ 6 Şeref Listesi</h1>
   <nav>
     <a href="index.html" class="active">Şeref Listesi</a>
+    <a href="oyun-tarihi.html">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
+    <a href="blog.html">Günce</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
@@ -27,7 +28,7 @@
 <main>
   <section class="panel">
     <h2>🏆 Sıralama</h2>
-    <p class="muted">Kayıtlı tüm oyunlardaki toplam puanlar.</p>
+    <p class="muted">Yalnızca dereceli ve tamamlanmış oyunlardaki toplam puanlar.</p>
     <table id="leaderboard-table">
       <thead>
         <tr><th>#</th><th>Oyuncu</th><th>Puan</th><th>Oyun</th></tr>
@@ -39,8 +40,24 @@
   </section>
 
   <section class="panel">
-    <h2>📜 Oyun Tarihçesi</h2>
-    <div id="history-list" class="muted">Yükleniyor...</div>
+    <h2>📊 Oyuna Göre Puanlar</h2>
+    <p class="muted">Her dereceli ve tamamlanmış oyunda oyuncuların aldığı puanlar.</p>
+    <div class="table-scroll">
+      <table id="matrix-table">
+        <thead id="matrix-head">
+          <tr><th>Oyuncu</th></tr>
+        </thead>
+        <tbody id="matrix-body">
+          <tr><td class="muted">Yükleniyor...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>📜 Oyun Tarihi</h2>
+    <p class="muted">Tüm oyunları — dereceli ya da değil, devam eden ya da tamamlanmış — detaylarıyla görmek için Oyun Tarihi sayfasına göz at.</p>
+    <a href="oyun-tarihi.html"><button>Oyun Tarihine Git</button></a>
   </section>
 </main>
 
@@ -48,33 +65,33 @@
 <script src="config.js"></script>
 <script>
 const MEDALS = ['👑', '🥈', '🥉'];
+const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
 
 async function loadData() {
   const { data: games, error: gErr } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, results(player_name, rank, points), game_images(image_url)')
+    .select('id, played_on, name, created_at, results(player_name, rank, points)')
     .eq('status', 'completed')
-    .order('created_at', { ascending: false });
+    .eq('ranked', true)
+    .order('created_at', { ascending: true });
 
   const leaderboardBody = document.getElementById('leaderboard-body');
-  const historyList = document.getElementById('history-list');
+  const matrixHead = document.getElementById('matrix-head');
+  const matrixBody = document.getElementById('matrix-body');
 
   if (gErr) {
     leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Veriler yüklenemedi. config.js dosyasının doğru ayarlandığından emin olun.</td></tr>`;
-    historyList.innerHTML = `<p class="error">Veriler yüklenemedi.</p>`;
+    matrixBody.innerHTML = `<tr><td class="error">Veriler yüklenemedi.</td></tr>`;
     console.error(gErr);
     return;
   }
 
-  if (!games || games.length === 0) {
-    leaderboardBody.innerHTML = `<tr><td colspan="4" class="muted">Henüz kayıtlı oyun yok.</td></tr>`;
-    historyList.innerHTML = `<p class="muted">Henüz kayıtlı oyun yok.</p>`;
-    return;
-  }
+  const gameList = games || [];
 
-  // Toplamları hesapla
+  // Toplamları hesapla — kadro her zaman görünür, 0 oyunla bile
   const totals = {};
-  games.forEach(g => {
+  ROSTER.forEach(name => { totals[name] = { points: 0, games: 0 }; });
+  gameList.forEach(g => {
     (g.results || []).forEach(r => {
       if (!totals[r.player_name]) totals[r.player_name] = { points: 0, games: 0 };
       totals[r.player_name].points += r.points;
@@ -93,22 +110,21 @@ async function loadData() {
     </tr>
   `).join('');
 
-  // Oyun tarihçesi
-  historyList.innerHTML = games.map(g => {
-    const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
-    const title = g.name || g.note || `${g.played_on} tarihli oyun`;
-    return `
-      <div class="game-card">
-        <div class="date">${g.played_on}</div>
-        <h3 style="margin:0.2rem 0 0.5rem;">${escapeHtml(title)}</h3>
-        ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
-        <ol>
-          ${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
-        </ol>
-        ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
-        ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
-      </div>
-    `;
+  // Oyuna göre puanlar matrisi — sütunlar oyunlar, satırlar sabit kadro
+  if (gameList.length === 0) {
+    matrixHead.innerHTML = '<tr><th>Oyuncu</th><th>—</th></tr>';
+    matrixBody.innerHTML = `<tr><td class="muted">Henüz dereceli, tamamlanmış oyun yok.</td><td class="muted">—</td></tr>`;
+    return;
+  }
+
+  matrixHead.innerHTML = '<tr><th>Oyuncu</th>' + gameList.map(g => `<th>${escapeHtml(g.name || g.played_on)}</th>`).join('') + '</tr>';
+
+  matrixBody.innerHTML = ROSTER.map(name => {
+    const cells = gameList.map(g => {
+      const r = (g.results || []).find(res => res.player_name === name);
+      return `<td>${r ? r.points : '–'}</td>`;
+    }).join('');
+    return `<tr><td>${escapeHtml(name)}</td>${cells}</tr>`;
   }).join('');
 }
 
