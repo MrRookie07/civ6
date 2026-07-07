@@ -8,12 +8,15 @@
 </head>
 <body>
 <header>
-  <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  <div class="header-left">
+    <div id="auth-widget" class="auth-widget"></div>
+    <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  </div>
   <nav>
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
+    <a href="blog.html">Günce</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html" class="active">Yönetim</a>
   </nav>
@@ -26,17 +29,20 @@
 </div>
 
 <main>
-  <section class="panel" id="login-panel">
-    <h2>🔑 Yönetici Girişi</h2>
-    <label for="password">Şifre</label>
-    <input type="password" id="password" placeholder="Yönetici şifresini gir">
-    <button id="login-btn">Giriş yap</button>
-    <div id="login-error" class="error"></div>
+  <section class="panel" id="not-logged-in-panel">
+    <div class="access-denied">
+      <p class="muted">Bu sayfaya erişmek için üst sol köşedeki <strong>Giriş Yap</strong> düğmesini kullan.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="not-admin-panel" style="display:none;">
+    <div class="access-denied">
+      <p class="muted">Bu sayfaya yalnızca yöneticiler erişebilir.</p>
+    </div>
   </section>
 
   <section class="panel" id="new-game-panel" style="display:none;">
     <h2>🚩 Yeni Bir Oyun Başlat</h2>
-    <button class="secondary" id="logout-btn" style="margin-top:0;">Çıkış yap</button>
 
     <label for="game-date">Tarih</label>
     <input type="date" id="game-date">
@@ -69,52 +75,36 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="auth.js"></script>
 <script>
 const RANK_LABELS = ['1.', '2.', '3.', '4.', '5.', '6.'];
 const RANK_POINTS = [6, 4, 3, 2, 1, 0];
 const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
 
-const loginPanel = document.getElementById('login-panel');
+const notLoggedInPanel = document.getElementById('not-logged-in-panel');
+const notAdminPanel = document.getElementById('not-admin-panel');
 const newGamePanel = document.getElementById('new-game-panel');
 const inProgressPanel = document.getElementById('in-progress-panel');
 const managePanel = document.getElementById('manage-panel');
 
 document.getElementById('game-date').value = new Date().toISOString().slice(0, 10);
 
-async function checkSession() {
-  const { data } = await supabaseClient.auth.getSession();
-  if (data.session) {
-    showAdminPanels();
+Civ6Auth.onChange(() => {
+  const loggedIn = !!Civ6Auth.currentUser;
+  const admin = Civ6Auth.isAdmin;
+
+  notLoggedInPanel.style.display = !loggedIn ? 'block' : 'none';
+  notAdminPanel.style.display = (loggedIn && !admin) ? 'block' : 'none';
+
+  const showAdmin = loggedIn && admin;
+  newGamePanel.style.display = showAdmin ? 'block' : 'none';
+  inProgressPanel.style.display = showAdmin ? 'block' : 'none';
+  managePanel.style.display = showAdmin ? 'block' : 'none';
+
+  if (showAdmin) {
+    loadInProgressList();
+    loadManageList();
   }
-}
-
-function showAdminPanels() {
-  loginPanel.style.display = 'none';
-  newGamePanel.style.display = 'block';
-  inProgressPanel.style.display = 'block';
-  managePanel.style.display = 'block';
-  loadInProgressList();
-  loadManageList();
-}
-
-document.getElementById('login-btn').addEventListener('click', async () => {
-  const password = document.getElementById('password').value;
-  const errEl = document.getElementById('login-error');
-  errEl.textContent = '';
-  const { error } = await supabaseClient.auth.signInWithPassword({
-    email: ADMIN_EMAIL,
-    password
-  });
-  if (error) {
-    errEl.textContent = 'Şifre hatalı.';
-    return;
-  }
-  showAdminPanels();
-});
-
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await supabaseClient.auth.signOut();
-  location.reload();
 });
 
 document.getElementById('start-game-btn').addEventListener('click', async () => {
@@ -357,8 +347,6 @@ async function loadManageList() {
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-
-checkSession();
 </script>
 </body>
 </html>

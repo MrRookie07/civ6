@@ -8,7 +8,10 @@
 </head>
 <body>
 <header>
-  <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  <div class="header-left">
+    <div id="auth-widget" class="auth-widget"></div>
+    <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  </div>
   <nav>
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html">Oyun Tarihi</a>
@@ -26,48 +29,6 @@
 </div>
 
 <main>
-  <section class="panel" id="account-panel">
-    <div class="tab-row" id="auth-tabs">
-      <button id="tab-login">Giriş Yap</button>
-      <button id="tab-signup" class="inactive">Hesap Oluştur</button>
-    </div>
-
-    <div id="login-form">
-      <h2>🔑 Giriş Yap</h2>
-      <label for="login-username">Kullanıcı Adı</label>
-      <input type="text" id="login-username" placeholder="Kullanıcı adın">
-      <label for="login-password">Şifre</label>
-      <input type="password" id="login-password" placeholder="Şifren">
-      <button id="login-btn">Giriş Yap</button>
-      <div id="login-msg"></div>
-    </div>
-
-    <div id="signup-form" style="display:none;">
-      <h2>📝 Hesap Oluştur</h2>
-      <label for="signup-username">Bir kullanıcı adı seç</label>
-      <input type="text" id="signup-username" placeholder="örn. Alperen">
-      <label for="signup-password">Bir şifre seç</label>
-      <input type="password" id="signup-password" placeholder="En az 6 karakter">
-      <button id="signup-btn">Hesap Oluştur</button>
-      <div id="signup-msg"></div>
-    </div>
-
-    <div id="claim-username-form" style="display:none;">
-      <h2>🏷️ Bir Kullanıcı Adı Seç</h2>
-      <p class="muted">Giriş yaptın ama henüz bir kullanıcı adı seçmedin.</p>
-      <label for="claim-username">Kullanıcı Adı</label>
-      <input type="text" id="claim-username" placeholder="örn. Alperen">
-      <button id="claim-btn">Kullanıcı Adını Kaydet</button>
-      <button class="secondary" id="claim-logout-btn">Bunun Yerine Çıkış Yap</button>
-      <div id="claim-msg"></div>
-    </div>
-
-    <div id="logged-in-panel" style="display:none;">
-      <p><span class="pill">📖 Giriş yapan: <strong id="current-username"></strong></span></p>
-      <button class="secondary" id="logout-btn">Çıkış Yap</button>
-    </div>
-  </section>
-
   <section class="panel" id="compose-panel" style="display:none;">
     <h2>✍️ Yeni Bir Kayıt Yaz</h2>
     <label for="post-title">Başlık</label>
@@ -84,6 +45,10 @@
     <div id="post-msg"></div>
   </section>
 
+  <section class="panel" id="login-hint" >
+    <p class="muted">Kayıt yazmak için üst köşedeki <strong>Giriş Yap</strong> düğmesini kullan.</p>
+  </section>
+
   <section class="panel">
     <h2>📜 Son Kayıtlar</h2>
     <div id="posts-list" class="muted">Yükleniyor...</div>
@@ -92,212 +57,28 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="auth.js"></script>
 <script>
-const EMAIL_DOMAIN = 'civ6players.local';
-let currentUser = null;
-let currentUsername = null;
-
-function usernameToEmail(username) {
-  const safe = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
-  return `${safe}@${EMAIL_DOMAIN}`;
-}
-
-const tabLogin = document.getElementById('tab-login');
-const tabSignup = document.getElementById('tab-signup');
-const loginForm = document.getElementById('login-form');
-const signupForm = document.getElementById('signup-form');
-const claimForm = document.getElementById('claim-username-form');
-const loggedInPanel = document.getElementById('logged-in-panel');
 const composePanel = document.getElementById('compose-panel');
-const authTabs = document.getElementById('auth-tabs');
+const loginHint = document.getElementById('login-hint');
 
-tabLogin.addEventListener('click', () => {
-  tabLogin.classList.remove('inactive');
-  tabSignup.classList.add('inactive');
-  loginForm.style.display = 'block';
-  signupForm.style.display = 'none';
-});
-
-tabSignup.addEventListener('click', () => {
-  tabSignup.classList.remove('inactive');
-  tabLogin.classList.add('inactive');
-  signupForm.style.display = 'block';
-  loginForm.style.display = 'none';
-});
-
-async function refreshAuthState() {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-
-  if (!session) {
-    currentUser = null;
-    currentUsername = null;
-    authTabs.style.display = 'flex';
-    loginForm.style.display = 'block';
-    signupForm.style.display = 'none';
-    claimForm.style.display = 'none';
-    loggedInPanel.style.display = 'none';
-    composePanel.style.display = 'none';
-    return;
-  }
-
-  currentUser = session.user;
-
-  const { data: profile } = await supabaseClient
-    .from('profiles')
-    .select('username')
-    .eq('id', currentUser.id)
-    .maybeSingle();
-
-  authTabs.style.display = 'none';
-  loginForm.style.display = 'none';
-  signupForm.style.display = 'none';
-
-  if (!profile) {
-    claimForm.style.display = 'block';
-    loggedInPanel.style.display = 'none';
-    composePanel.style.display = 'none';
-    return;
-  }
-
-  currentUsername = profile.username;
-  claimForm.style.display = 'none';
-  loggedInPanel.style.display = 'block';
-  document.getElementById('current-username').textContent = currentUsername;
-  composePanel.style.display = 'block';
-}
-
-document.getElementById('signup-btn').addEventListener('click', async () => {
-  const msgEl = document.getElementById('signup-msg');
-  msgEl.textContent = '';
-  msgEl.className = '';
-
-  const username = document.getElementById('signup-username').value.trim();
-  const password = document.getElementById('signup-password').value;
-
-  if (!username || username.length < 2) {
-    msgEl.textContent = 'En az 2 karakterden oluşan bir kullanıcı adı seç.';
-    msgEl.className = 'error';
-    return;
-  }
-  if (!password || password.length < 6) {
-    msgEl.textContent = 'Şifre en az 6 karakter olmalı.';
-    msgEl.className = 'error';
-    return;
-  }
-
-  const { data: existing } = await supabaseClient
-    .from('profiles')
-    .select('username')
-    .ilike('username', username)
-    .maybeSingle();
-
-  if (existing) {
-    msgEl.textContent = 'Bu kullanıcı adı zaten alınmış.';
-    msgEl.className = 'error';
-    return;
-  }
-
-  const { data: signUpData, error: signUpErr } = await supabaseClient.auth.signUp({
-    email: usernameToEmail(username),
-    password
-  });
-
-  if (signUpErr) {
-    msgEl.textContent = signUpErr.message;
-    msgEl.className = 'error';
-    return;
-  }
-
-  const userId = signUpData.user?.id;
-  if (userId) {
-    const { error: profileErr } = await supabaseClient
-      .from('profiles')
-      .insert({ id: userId, username });
-    if (profileErr) {
-      msgEl.textContent = 'Hesap oluşturuldu ama kullanıcı adı kaydedilemedi: ' + profileErr.message;
-      msgEl.className = 'error';
-      return;
-    }
-  }
-
-  msgEl.textContent = 'Hesap oluşturuldu! Artık giriş yaptın.';
-  msgEl.className = 'success';
-  await refreshAuthState();
-});
-
-document.getElementById('login-btn').addEventListener('click', async () => {
-  const msgEl = document.getElementById('login-msg');
-  msgEl.textContent = '';
-  msgEl.className = '';
-
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-
-  const { error } = await supabaseClient.auth.signInWithPassword({
-    email: usernameToEmail(username),
-    password
-  });
-
-  if (error) {
-    msgEl.textContent = 'Kullanıcı adı veya şifre hatalı.';
-    msgEl.className = 'error';
-    return;
-  }
-
-  await refreshAuthState();
-});
-
-document.getElementById('claim-btn').addEventListener('click', async () => {
-  const msgEl = document.getElementById('claim-msg');
-  msgEl.textContent = '';
-  msgEl.className = '';
-  const username = document.getElementById('claim-username').value.trim();
-
-  if (!username || username.length < 2) {
-    msgEl.textContent = 'En az 2 karakterden oluşan bir kullanıcı adı seç.';
-    msgEl.className = 'error';
-    return;
-  }
-
-  const { data: existing } = await supabaseClient
-    .from('profiles')
-    .select('username')
-    .ilike('username', username)
-    .maybeSingle();
-
-  if (existing) {
-    msgEl.textContent = 'Bu kullanıcı adı zaten alınmış.';
-    msgEl.className = 'error';
-    return;
-  }
-
-  const { error } = await supabaseClient
-    .from('profiles')
-    .insert({ id: currentUser.id, username });
-
-  if (error) {
-    msgEl.textContent = error.message;
-    msgEl.className = 'error';
-    return;
-  }
-
-  await refreshAuthState();
-});
-
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await supabaseClient.auth.signOut();
-  location.reload();
-});
-
-document.getElementById('claim-logout-btn').addEventListener('click', async () => {
-  await supabaseClient.auth.signOut();
-  location.reload();
+Civ6Auth.onChange(() => {
+  const loggedIn = !!(Civ6Auth.currentUser && Civ6Auth.currentUsername);
+  composePanel.style.display = loggedIn ? 'block' : 'none';
+  loginHint.style.display = loggedIn ? 'none' : 'block';
+  loadPosts();
 });
 
 document.getElementById('post-submit-btn').addEventListener('click', async () => {
   const msgEl = document.getElementById('post-msg');
   msgEl.textContent = '';
   msgEl.className = '';
+
+  if (!Civ6Auth.currentUser || !Civ6Auth.currentUsername) {
+    msgEl.textContent = 'Kayıt yazmak için giriş yapmalısın.';
+    msgEl.className = 'error';
+    return;
+  }
 
   const title = document.getElementById('post-title').value.trim();
   const body = document.getElementById('post-body').value.trim();
@@ -314,7 +95,7 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   let imageUrl = null;
 
   if (file) {
-    const path = `${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
     const { error: uploadErr } = await supabaseClient.storage
       .from('blog-images')
       .upload(path, file);
@@ -332,8 +113,8 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   }
 
   const { error: insertErr } = await supabaseClient.from('posts').insert({
-    author_id: currentUser.id,
-    author_name: currentUsername,
+    author_id: Civ6Auth.currentUser.id,
+    author_name: Civ6Auth.currentUsername,
     is_anonymous: isAnonymous,
     title,
     body,
@@ -376,7 +157,7 @@ async function loadPosts() {
   listEl.innerHTML = posts.map(p => {
     const displayName = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
     const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
-    const canDelete = currentUser && p.author_id === currentUser.id;
+    const canDelete = Civ6Auth.currentUser && p.author_id === Civ6Auth.currentUser.id;
     return `
       <div class="post-card">
         ${canDelete ? `<button class="delete-post" data-id="${p.id}" id="delete-post">Sil</button>` : ''}
@@ -401,7 +182,6 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-refreshAuthState();
 loadPosts();
 </script>
 </body>

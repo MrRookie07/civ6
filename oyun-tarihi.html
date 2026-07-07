@@ -8,12 +8,15 @@
 </head>
 <body>
 <header>
-  <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  <div class="header-left">
+    <div id="auth-widget" class="auth-widget"></div>
+    <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  </div>
   <nav>
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html" class="active">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
+    <a href="blog.html">Günce</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
@@ -22,7 +25,7 @@
 <div class="hero-banner">
   <div class="crest">📜</div>
   <h1>Oyun Tarihi</h1>
-  <p>Dostlukların sınandığı maçların arşivi</p>
+  <p>Bu masada oynanmış tüm oyunların tam kaydı — dereceli ya da değil.</p>
 </div>
 
 <main>
@@ -34,6 +37,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="auth.js"></script>
 <script>
 async function loadGames() {
   const listEl = document.getElementById('history-list');

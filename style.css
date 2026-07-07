@@ -404,3 +404,59 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   left: 0;
   background: var(--panel);
 }
+
+/* Header login widget */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.auth-widget {
+  position: relative;
+}
+
+.auth-btn {
+  margin-top: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+}
+
+.auth-dropdown {
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  left: 0;
+  width: 260px;
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+  z-index: 50;
+}
+
+.auth-dropdown label {
+  margin: 0.6rem 0 0.3rem;
+}
+
+.auth-dropdown input {
+  font-size: 0.95rem;
+}
+
+.auth-dropdown button {
+  margin-top: 0.8rem;
+  width: 100%;
+}
+
+.auth-msg {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.auth-msg.error { color: #e07a7a; }
+.auth-msg.success { color: #7ac98a; }
+
+.access-denied {
+  text-align: center;
+  padding: 1.5rem 0;
+}
