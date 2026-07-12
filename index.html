@@ -59,14 +59,12 @@
   <section class="panel">
     <h2>🏆 Sıralama</h2>
     <p class="muted">Yalnızca dereceli ve tamamlanmış oyunlardaki toplam puanlar.</p>
-    <table id="leaderboard-table">
-      <thead>
-        <tr><th>#</th><th>Oyuncu</th><th>Puan</th><th>Oyun</th></tr>
-      </thead>
-      <tbody id="leaderboard-body">
-        <tr><td colspan="4" class="muted">Yükleniyor...</td></tr>
-      </tbody>
-    </table>
+    <div class="leaderboard-grid" id="leaderboard-grid">
+      <div class="lb-head-row">
+        <span>#</span><span>Oyuncu</span><span>Puan / Oyun</span>
+      </div>
+      <div id="leaderboard-body" class="muted">Yükleniyor...</div>
+    </div>
   </section>
 
   <section class="panel">
@@ -209,7 +207,7 @@ async function loadEntries() {
     const gameTag = e.games ? `<span class="pill">🎮 ${escapeHtml(e.games.name || e.games.played_on)}</span>` : '';
     return `
       <div class="entry-card">
-        ${canDelete ? `<button class="entry-delete-btn" data-id="${e.id}">Sil</button>` : ''}
+        ${canDelete ? `<div class="card-actions"><button class="danger entry-delete-btn" data-id="${e.id}">Sil</button></div>` : ''}
         <div class="entry-meta">${escapeHtml(e.author_name || 'Bilinmiyor')} · ${date} ${gameTag}</div>
         <div class="entry-body">${escapeHtml(e.body)}</div>
       </div>
@@ -240,7 +238,7 @@ async function loadData() {
   const matrixBody = document.getElementById('matrix-body');
 
   if (gErr) {
-    leaderboardBody.innerHTML = `<tr><td colspan="4" class="error">Veriler yüklenemedi. config.js dosyasının doğru ayarlandığından emin olun.</td></tr>`;
+    leaderboardBody.innerHTML = `<p class="error">Veriler yüklenemedi. config.js dosyasının doğru ayarlandığından emin olun.</p>`;
     matrixBody.innerHTML = `<tr><td class="error">Veriler yüklenemedi.</td></tr>`;
     console.error(gErr);
     return;
@@ -262,12 +260,11 @@ async function loadData() {
   const sorted = Object.entries(totals).sort((a, b) => b[1].points - a[1].points);
 
   leaderboardBody.innerHTML = sorted.map(([name, stats], i) => `
-    <tr class="${i < 3 ? 'rank-' + (i + 1) : ''}">
-      <td>${i + 1}</td>
-      <td>${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}${escapeHtml(name)}</td>
-      <td>${stats.points}</td>
-      <td>${stats.games}</td>
-    </tr>
+    <div class="lb-row${i < 3 ? ' rank-' + (i + 1) : ''}">
+      <span class="lb-rank">${i + 1}</span>
+      <span class="lb-name">${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}${escapeHtml(name)}</span>
+      <span class="lb-stats"><strong>${stats.points}</strong> puan · ${stats.games} oyun</span>
+    </div>
   `).join('');
 
   // Oyuna göre puanlar matrisi — sütunlar oyunlar, satırlar sabit kadro

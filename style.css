@@ -274,6 +274,46 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   letter-spacing: 0.03em;
 }
 
+.game-card .date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.game-card .date-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: "Cinzel", serif;
+  letter-spacing: 0.03em;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.card-actions button {
+  margin-top: 0;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.card-actions button.danger {
+  background: transparent;
+  border: 1px solid #7a3030;
+  color: #e07a7a;
+  box-shadow: none;
+}
+
 .game-card h3 {
   color: var(--accent);
   font-family: "Cinzel", serif;
@@ -306,8 +346,6 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   color: #e07a7a;
   margin-left: 0.6rem;
 }
-
-/* Blog */
 .post-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -331,15 +369,54 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
 }
 
 .post-body {
-  white-space: pre-wrap;
-  line-height: 1.55;
+  line-height: 1.75;
+  font-size: 1.08rem;
+}
+
+.post-body p {
+  margin: 0 0 1.1em;
+}
+
+.post-body p:last-child {
+  margin-bottom: 0;
 }
 
 .post-image {
+  display: block;
   max-width: 100%;
-  border-radius: 6px;
-  margin: 0.8rem 0;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 1.1rem auto;
+  border-radius: 8px;
   border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+}
+
+.post-card audio {
+  display: block;
+  width: 100%;
+  margin: 0.6rem 0 0.3rem;
+}
+
+.post-card:target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.game-related-posts {
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.game-related-posts a {
+  color: var(--accent2);
 }
 
 .tab-row {
@@ -384,20 +461,10 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   color: var(--muted);
 }
 
-#delete-post {
-  float: right;
-  margin-top: 0;
-  background: transparent;
-  border: 1px solid #7a3030;
-  color: #e07a7a;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.75rem;
-  box-shadow: none;
-}
-
 /* Score matrix table */
 .table-scroll {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #matrix-table th, #matrix-table td {
@@ -408,6 +475,75 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   position: sticky;
   left: 0;
   background: var(--panel);
+}
+
+/* Leaderboard — CSS grid rows that collapse into stacked cards on mobile */
+.leaderboard-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.lb-head-row, .lb-row {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-head-row {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-family: "Cinzel", serif;
+  font-weight: 600;
+}
+
+.lb-stats { text-align: right; white-space: nowrap; }
+
+.lb-row.rank-1 {
+  background: linear-gradient(90deg, rgba(212,175,90,0.16), transparent 70%);
+}
+.lb-row.rank-1 .lb-rank, .lb-row.rank-1 .lb-name {
+  color: var(--accent); font-weight: 700; text-shadow: 0 0 10px var(--gold-glow);
+}
+.lb-row.rank-2 {
+  background: linear-gradient(90deg, rgba(199,204,209,0.10), transparent 70%);
+}
+.lb-row.rank-2 .lb-name { color: var(--silver); font-weight: 700; }
+.lb-row.rank-3 {
+  background: linear-gradient(90deg, rgba(176,106,58,0.12), transparent 70%);
+}
+.lb-row.rank-3 .lb-name { color: var(--bronze); font-weight: 700; }
+
+@media (max-width: 560px) {
+  header { padding: 0.9rem 1rem; }
+  header h1 { font-size: 1.15rem; }
+  .header-left { flex-wrap: wrap; }
+  nav a { margin-left: 0.4rem; padding: 0.35rem 0.6rem; font-size: 0.78rem; }
+  main { padding: 1.4rem 1rem 3rem; }
+  .panel { padding: 1.1rem 1.2rem; }
+  .hero-banner h1 { font-size: 1.5rem; }
+
+  .lb-head-row { display: none; }
+  .lb-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+  .lb-rank { order: 0; margin-right: 0.5rem; font-weight: 700; }
+  .lb-name { order: 1; flex: 1; }
+  .lb-stats {
+    order: 2; width: 100%; margin-top: 0.3rem;
+    text-align: left; color: var(--muted); font-size: 0.85rem;
+  }
 }
 
 /* Header login widget */
@@ -514,15 +650,4 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
 .entry-card .entry-body {
   white-space: pre-wrap;
   line-height: 1.5;
-}
-
-.entry-delete-btn {
-  float: right;
-  margin-top: 0;
-  background: transparent;
-  border: 1px solid #7a3030;
-  color: #e07a7a;
-  padding: 0.15rem 0.55rem;
-  font-size: 0.72rem;
-  box-shadow: none;
 }

@@ -165,9 +165,13 @@ async function loadInProgressList() {
 
   listEl.innerHTML = games.map(g => `
     <div class="game-card">
-      <div class="date">
-        ${g.played_on} · <span class="pill">Devam Ediyor</span> <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
-        <button data-id="${g.id}" data-ranked="${g.ranked}" class="toggle-ranked" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+      <div class="date-row">
+        <div class="date-info">
+          ${g.played_on} · <span class="pill">Devam Ediyor</span> <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
+        </div>
+        <div class="card-actions">
+          <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+        </div>
       </div>
       <h3 style="margin:0.3rem 0;">${escapeHtml(g.name)}</h3>
       ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
@@ -310,10 +314,14 @@ async function loadManageList() {
     const title = g.name || g.note || `${g.played_on} tarihli oyun`;
     return `
       <div class="game-card">
-        <div class="date">
-          ${g.played_on} · <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
-          <button data-id="${g.id}" class="delete-game" style="background:transparent;border:1px solid #7a3030;color:#e07a7a;padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;">Sil</button>
-          <button data-id="${g.id}" data-ranked="${g.ranked}" class="toggle-ranked" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:0.2rem 0.6rem;margin-top:0;font-size:0.8rem;float:right;margin-right:0.4rem;">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+        <div class="date-row">
+          <div class="date-info">
+            ${g.played_on} · <span class="pill${g.ranked ? '' : ' dim'}">${g.ranked ? 'Dereceli' : 'Derecesiz'}</span>
+          </div>
+          <div class="card-actions">
+            <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+            <button data-id="${g.id}" class="danger delete-game">Sil</button>
+          </div>
         </div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}

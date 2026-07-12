@@ -34,13 +34,18 @@
     <label for="post-title">Başlık</label>
     <input type="text" id="post-title" placeholder="örn. Persepolis'in Düşüşü">
     <label for="post-body">Hikaye</label>
-    <textarea id="post-body" placeholder="Hikayeni anlat..."></textarea>
+    <textarea id="post-body" placeholder="Hikayeni anlat... İmleci istediğin yere koyup 'Resim Ekle' ile araya fotoğraf serpiştirebilirsin." style="min-height:200px;"></textarea>
+    <div class="checkbox-row" style="margin-top:0.6rem;">
+      <button type="button" id="post-image-insert-btn" class="secondary">🖼️ Resim Ekle</button>
+      <input type="file" id="post-image-insert-file" accept="image/*" style="display:none;">
+      <span id="post-image-status" class="muted"></span>
+    </div>
     <label for="post-game-select">İlgili Oyun (isteğe bağlı)</label>
     <select id="post-game-select">
       <option value="">— Yok —</option>
     </select>
-    <label for="post-image">Fotoğraf (isteğe bağlı)</label>
-    <input type="file" id="post-image" accept="image/*">
+    <label for="post-audio">🔊 Sesli Özet (isteğe bağlı)</label>
+    <input type="file" id="post-audio" accept="audio/*">
     <div class="checkbox-row">
       <input type="checkbox" id="post-anonymous">
       <label for="post-anonymous">Anonim olarak paylaş</label>
@@ -95,6 +100,87 @@ async function loadGamesCache() {
   postGameSelect.innerHTML = gameOptionsHtml('');
 }
 
+// Metin kutusunun imleç konumuna metin ekler (resim eklemek için kullanılır)
+function insertAtCursor(textarea, text) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const before = textarea.value.slice(0, start);
+  const after = textarea.value.slice(end);
+  textarea.value = before + text + after;
+  const cursorPos = start + text.length;
+  textarea.focus();
+  textarea.setSelectionRange(cursorPos, cursorPos);
+}
+
+async function uploadPostImage(file) {
+  const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+  const { error: uploadErr } = await supabaseClient.storage.from('blog-images').upload(path, file);
+  if (uploadErr) throw uploadErr;
+  const { data: publicUrlData } = supabaseClient.storage.from('blog-images').getPublicUrl(path);
+  return publicUrlData.publicUrl;
+}
+
+async function uploadPostAudio(file) {
+  const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+  const { error: uploadErr } = await supabaseClient.storage.from('blog-audio').upload(path, file);
+  if (uploadErr) throw uploadErr;
+  const { data: publicUrlData } = supabaseClient.storage.from('blog-audio').getPublicUrl(path);
+  return publicUrlData.publicUrl;
+}
+
+// Basit satır-tabanlı biçimlendirme: tek başına bir satırda ![](url) ise resim,
+// boş satır paragraf arası, diğer her şey düz metin (kaçışlı).
+function renderPostBody(body) {
+  const lines = (body || '').split('\n');
+  let html = '';
+  let buffer = [];
+
+  function flush() {
+    if (buffer.length) {
+      html += `<p>${buffer.map(escapeHtml).join('<br>')}</p>`;
+      buffer = [];
+    }
+  }
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    const m = trimmed.match(/^!\[\]\((\S+)\)$/);
+    if (m) {
+      flush();
+      html += `<img class="post-image" src="${escapeHtml(m[1])}" alt="">`;
+    } else if (trimmed === '') {
+      flush();
+    } else {
+      buffer.push(line);
+    }
+  });
+  flush();
+  return html;
+}
+
+// --- Kayıt oluşturma paneli: Resim Ekle düğmesi ---
+document.getElementById('post-image-insert-btn').addEventListener('click', () => {
+  document.getElementById('post-image-insert-file').click();
+});
+
+document.getElementById('post-image-insert-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('post-image-status');
+  statusEl.textContent = 'Resim yükleniyor...';
+  statusEl.className = 'muted';
+  try {
+    const url = await uploadPostImage(file);
+    insertAtCursor(document.getElementById('post-body'), `\n![](${url})\n`);
+    statusEl.textContent = 'Resim eklendi.';
+    statusEl.className = 'success';
+  } catch (err) {
+    statusEl.textContent = 'Resim yüklenemedi: ' + err.message;
+    statusEl.className = 'error';
+  }
+  e.target.value = '';
+});
+
 document.getElementById('post-submit-btn').addEventListener('click', async () => {
   const msgEl = document.getElementById('post-msg');
   msgEl.textContent = '';
@@ -110,8 +196,8 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   const body = document.getElementById('post-body').value.trim();
   const isAnonymous = document.getElementById('post-anonymous').checked;
   const gameId = postGameSelect.value || null;
-  const fileInput = document.getElementById('post-image');
-  const file = fileInput.files[0];
+  const audioInput = document.getElementById('post-audio');
+  const audioFile = audioInput.files[0];
 
   if (!title || !body) {
     msgEl.textContent = 'Lütfen bir başlık ve biraz hikaye metni ekle.';
@@ -119,24 +205,15 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
     return;
   }
 
-  let imageUrl = null;
-
-  if (file) {
-    const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-    const { error: uploadErr } = await supabaseClient.storage
-      .from('blog-images')
-      .upload(path, file);
-
-    if (uploadErr) {
-      msgEl.textContent = 'Fotoğraf yüklenemedi: ' + uploadErr.message;
+  let audioUrl = null;
+  if (audioFile) {
+    try {
+      audioUrl = await uploadPostAudio(audioFile);
+    } catch (err) {
+      msgEl.textContent = 'Sesli özet yüklenemedi: ' + err.message;
       msgEl.className = 'error';
       return;
     }
-
-    const { data: publicUrlData } = supabaseClient.storage
-      .from('blog-images')
-      .getPublicUrl(path);
-    imageUrl = publicUrlData.publicUrl;
   }
 
   const { error: insertErr } = await supabaseClient.from('posts').insert({
@@ -145,8 +222,8 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
     is_anonymous: isAnonymous,
     title,
     body,
-    image_url: imageUrl,
-    game_id: gameId
+    game_id: gameId,
+    audio_url: audioUrl
   });
 
   if (insertErr) {
@@ -160,8 +237,9 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   document.getElementById('post-title').value = '';
   document.getElementById('post-body').value = '';
   document.getElementById('post-anonymous').checked = false;
+  document.getElementById('post-image-status').textContent = '';
   postGameSelect.value = '';
-  fileInput.value = '';
+  audioInput.value = '';
   loadPosts();
 });
 
@@ -172,7 +250,7 @@ async function loadPosts() {
 
   const { data: posts, error } = await supabaseClient
     .from('posts')
-    .select('id, title, body, image_url, author_name, is_anonymous, author_id, created_at, game_id, games(name, played_on)')
+    .select('id, title, body, image_url, audio_url, author_name, is_anonymous, author_id, created_at, game_id, games(name, played_on)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -191,36 +269,47 @@ async function loadPosts() {
     const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
     const canEdit = Civ6Auth.currentUser && (p.author_id === Civ6Auth.currentUser.id || Civ6Auth.isAdmin);
     const gameTag = p.games ? `<a class="pill" href="oyun-tarihi.html#game-${p.game_id}">🎮 ${escapeHtml(gameLabel(p.games))}</a>` : '';
+    // Eski gönderilerin tekil resmi (image_url) henüz düzenlenmediyse en üstte gösterilmeye devam eder.
+    const legacyImage = p.image_url ? `<img class="post-image" src="${escapeHtml(p.image_url)}" alt="">` : '';
 
     return `
-      <div class="post-card">
+      <div class="post-card" id="post-${p.id}">
         <div id="view-${p.id}">
-          <div style="float:right;">
-            ${canEdit ? `<button class="edit-post" data-id="${p.id}">Düzenle</button>` : ''}
-            ${canEdit ? `<button class="delete-post" data-id="${p.id}">Sil</button>` : ''}
-          </div>
+          ${canEdit ? `
+            <div class="card-actions">
+              <button class="edit-post" data-id="${p.id}">Düzenle</button>
+              <button class="danger delete-post" data-id="${p.id}">Sil</button>
+            </div>
+          ` : ''}
           <h3>${escapeHtml(p.title)}</h3>
           <div class="post-meta">${displayName} tarafından · ${date} ${gameTag}</div>
-          ${p.image_url ? `<img class="post-image" src="${p.image_url}" alt="">` : ''}
-          <div class="post-body">${escapeHtml(p.body)}</div>
+          ${p.audio_url ? `<audio controls src="${escapeHtml(p.audio_url)}"></audio>` : ''}
+          ${legacyImage}
+          <div class="post-body">${renderPostBody(p.body)}</div>
         </div>
         ${canEdit ? `
-        <div id="edit-form-${p.id}" style="display:none; margin-top:1rem;">
+        <div class="edit-form" id="edit-form-${p.id}" style="display:none; margin-top:1rem;">
           <label>Başlık</label>
           <input type="text" class="edit-title" value="${escapeHtml(p.title)}">
           <label>Hikaye</label>
-          <textarea class="edit-body">${escapeHtml(p.body)}</textarea>
+          <textarea class="edit-body" style="min-height:200px;">${escapeHtml(p.image_url ? `![](${p.image_url})\n\n${p.body}` : p.body)}</textarea>
+          <div class="checkbox-row" style="margin-top:0.6rem;">
+            <button type="button" class="secondary edit-image-insert-btn">🖼️ Resim Ekle</button>
+            <input type="file" class="edit-image-insert-file" accept="image/*" style="display:none;">
+            <span class="edit-image-status muted"></span>
+          </div>
           <label>İlgili Oyun</label>
           <select class="edit-game-select">${gameOptionsHtml(p.game_id)}</select>
-          ${p.image_url ? `
-            <img class="post-image" src="${p.image_url}" alt="" style="max-width:220px;">
+          ${p.audio_url ? `
+            <label>Mevcut Sesli Özet</label>
+            <audio controls src="${escapeHtml(p.audio_url)}" style="width:100%;"></audio>
             <div class="checkbox-row">
-              <input type="checkbox" class="edit-remove-image" id="remove-img-${p.id}">
-              <label for="remove-img-${p.id}">Fotoğrafı kaldır</label>
+              <input type="checkbox" class="edit-remove-audio" id="rm-audio-${p.id}">
+              <label for="rm-audio-${p.id}">Sesli özeti kaldır</label>
             </div>
           ` : ''}
-          <label>${p.image_url ? 'Fotoğrafı Değiştir' : 'Fotoğraf Ekle'} (isteğe bağlı)</label>
-          <input type="file" class="edit-image-file" accept="image/*">
+          <label>${p.audio_url ? 'Sesli Özeti Değiştir' : '🔊 Sesli Özet Ekle'} (isteğe bağlı)</label>
+          <input type="file" class="edit-audio-file" accept="audio/*">
           <div class="checkbox-row">
             <input type="checkbox" class="edit-anonymous" id="anon-${p.id}" ${p.is_anonymous ? 'checked' : ''}>
             <label for="anon-${p.id}">Anonim olarak paylaş</label>
@@ -249,12 +338,35 @@ async function loadPosts() {
     btn.addEventListener('click', () => toggleEditForm(btn.dataset.id));
   });
 
+  document.querySelectorAll('.edit-form').forEach(formEl => {
+    const insertBtn = formEl.querySelector('.edit-image-insert-btn');
+    const insertFile = formEl.querySelector('.edit-image-insert-file');
+    insertBtn.addEventListener('click', () => insertFile.click());
+    insertFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = formEl.querySelector('.edit-image-status');
+      statusEl.textContent = 'Resim yükleniyor...';
+      statusEl.className = 'edit-image-status muted';
+      try {
+        const url = await uploadPostImage(file);
+        insertAtCursor(formEl.querySelector('.edit-body'), `\n![](${url})\n`);
+        statusEl.textContent = 'Resim eklendi.';
+        statusEl.className = 'edit-image-status success';
+      } catch (err) {
+        statusEl.textContent = 'Resim yüklenemedi: ' + err.message;
+        statusEl.className = 'edit-image-status error';
+      }
+      e.target.value = '';
+    });
+  });
+
   document.querySelectorAll('.edit-save-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const postId = btn.dataset.id;
       const post = posts.find(x => x.id === postId);
       const formEl = document.getElementById(`edit-form-${postId}`);
-      submitPostEdit(postId, formEl, post.image_url);
+      submitPostEdit(postId, formEl, post.audio_url);
     });
   });
 }
@@ -267,7 +379,7 @@ function toggleEditForm(postId) {
   view.style.display = opening ? 'none' : 'block';
 }
 
-async function submitPostEdit(postId, formEl, currentImageUrl) {
+async function submitPostEdit(postId, formEl, currentAudioUrl) {
   const msgEl = formEl.querySelector('.edit-msg');
   msgEl.textContent = '';
   msgEl.className = '';
@@ -276,10 +388,9 @@ async function submitPostEdit(postId, formEl, currentImageUrl) {
   const body = formEl.querySelector('.edit-body').value.trim();
   const gameId = formEl.querySelector('.edit-game-select').value || null;
   const isAnonymous = formEl.querySelector('.edit-anonymous').checked;
-  const removeImageEl = formEl.querySelector('.edit-remove-image');
-  const removeImage = removeImageEl ? removeImageEl.checked : false;
-  const fileInput = formEl.querySelector('.edit-image-file');
-  const file = fileInput.files[0];
+  const removeAudioEl = formEl.querySelector('.edit-remove-audio');
+  const removeAudio = removeAudioEl ? removeAudioEl.checked : false;
+  const audioFile = formEl.querySelector('.edit-audio-file').files[0];
 
   if (!title || !body) {
     msgEl.textContent = 'Lütfen bir başlık ve biraz hikaye metni ekle.';
@@ -287,25 +398,25 @@ async function submitPostEdit(postId, formEl, currentImageUrl) {
     return;
   }
 
-  let imageUrl = currentImageUrl || null;
+  let audioUrl = currentAudioUrl || null;
 
-  if (file) {
-    const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-    const { error: uploadErr } = await supabaseClient.storage.from('blog-images').upload(path, file);
-    if (uploadErr) {
-      msgEl.textContent = 'Fotoğraf yüklenemedi: ' + uploadErr.message;
+  if (audioFile) {
+    try {
+      audioUrl = await uploadPostAudio(audioFile);
+    } catch (err) {
+      msgEl.textContent = 'Sesli özet yüklenemedi: ' + err.message;
       msgEl.className = 'error';
       return;
     }
-    const { data: publicUrlData } = supabaseClient.storage.from('blog-images').getPublicUrl(path);
-    imageUrl = publicUrlData.publicUrl;
-  } else if (removeImage) {
-    imageUrl = null;
+  } else if (removeAudio) {
+    audioUrl = null;
   }
 
+  // Eski tekil resim (image_url) bu düzenlemeyle birlikte metnin içine taşındı;
+  // bundan sonra o alan boşaltılır, resim artık body içindeki ![](...) satırında yaşıyor.
   const { error: updateErr } = await supabaseClient
     .from('posts')
-    .update({ title, body, is_anonymous: isAnonymous, game_id: gameId, image_url: imageUrl })
+    .update({ title, body, is_anonymous: isAnonymous, game_id: gameId, audio_url: audioUrl, image_url: null })
     .eq('id', postId);
 
   if (updateErr) {

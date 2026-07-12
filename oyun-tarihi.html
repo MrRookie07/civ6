@@ -58,6 +58,17 @@ async function loadGames() {
     return;
   }
 
+  const { data: posts } = await supabaseClient
+    .from('posts')
+    .select('id, title, game_id')
+    .not('game_id', 'is', null);
+
+  const postsByGame = {};
+  (posts || []).forEach(p => {
+    if (!postsByGame[p.game_id]) postsByGame[p.game_id] = [];
+    postsByGame[p.game_id].push(p);
+  });
+
   listEl.innerHTML = games.map(g => {
     const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
     const title = g.name || g.note || `${g.played_on} tarihli oyun`;
@@ -67,14 +78,21 @@ async function loadGames() {
     const rankedPill = g.ranked
       ? '<span class="pill">Dereceli</span>'
       : '<span class="pill dim">Derecesiz</span>';
+    const relatedPosts = postsByGame[g.id] || [];
     return `
       <div class="game-card" id="game-${g.id}">
-        <div class="date">${g.played_on} · ${statusPill} ${rankedPill}</div>
+        <div class="date-info">${g.played_on} · ${statusPill} ${rankedPill}</div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : ''}
         ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
+        ${relatedPosts.length ? `
+          <div class="game-related-posts">
+            <strong>📖 İlgili Yazılar:</strong>
+            ${relatedPosts.map(p => `<a class="pill" href="blog.html#post-${p.id}">${escapeHtml(p.title)}</a>`).join('')}
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
