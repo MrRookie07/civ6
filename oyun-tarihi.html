@@ -68,7 +68,7 @@ async function loadGames() {
       ? '<span class="pill">Dereceli</span>'
       : '<span class="pill dim">Derecesiz</span>';
     return `
-      <div class="game-card">
+      <div class="game-card" id="game-${g.id}">
         <div class="date">${g.played_on} · ${statusPill} ${rankedPill}</div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}

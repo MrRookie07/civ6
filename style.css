@@ -261,6 +261,11 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   background: rgba(255,255,255,0.015);
 }
 
+.game-card:target {
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .game-card .date {
   color: var(--muted);
   font-size: 0.85rem;

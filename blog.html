@@ -35,6 +35,10 @@
     <input type="text" id="post-title" placeholder="örn. Persepolis'in Düşüşü">
     <label for="post-body">Hikaye</label>
     <textarea id="post-body" placeholder="Hikayeni anlat..."></textarea>
+    <label for="post-game-select">İlgili Oyun (isteğe bağlı)</label>
+    <select id="post-game-select">
+      <option value="">— Yok —</option>
+    </select>
     <label for="post-image">Fotoğraf (isteğe bağlı)</label>
     <input type="file" id="post-image" accept="image/*">
     <div class="checkbox-row">
@@ -45,7 +49,7 @@
     <div id="post-msg"></div>
   </section>
 
-  <section class="panel" id="login-hint" >
+  <section class="panel" id="login-hint">
     <p class="muted">Kayıt yazmak için üst köşedeki <strong>Giriş Yap</strong> düğmesini kullan.</p>
   </section>
 
@@ -61,6 +65,9 @@
 <script>
 const composePanel = document.getElementById('compose-panel');
 const loginHint = document.getElementById('login-hint');
+const postGameSelect = document.getElementById('post-game-select');
+
+let gamesCache = [];
 
 Civ6Auth.onChange(() => {
   const loggedIn = !!(Civ6Auth.currentUser && Civ6Auth.currentUsername);
@@ -68,6 +75,25 @@ Civ6Auth.onChange(() => {
   loginHint.style.display = loggedIn ? 'none' : 'block';
   loadPosts();
 });
+
+function gameLabel(g) {
+  return g.name || g.played_on;
+}
+
+function gameOptionsHtml(selectedId) {
+  return '<option value="">— Yok —</option>' + gamesCache.map(g =>
+    `<option value="${g.id}"${g.id === selectedId ? ' selected' : ''}>${escapeHtml(gameLabel(g))}</option>`
+  ).join('');
+}
+
+async function loadGamesCache() {
+  const { data: games } = await supabaseClient
+    .from('games')
+    .select('id, name, played_on')
+    .order('created_at', { ascending: false });
+  gamesCache = games || [];
+  postGameSelect.innerHTML = gameOptionsHtml('');
+}
 
 document.getElementById('post-submit-btn').addEventListener('click', async () => {
   const msgEl = document.getElementById('post-msg');
@@ -83,6 +109,7 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   const title = document.getElementById('post-title').value.trim();
   const body = document.getElementById('post-body').value.trim();
   const isAnonymous = document.getElementById('post-anonymous').checked;
+  const gameId = postGameSelect.value || null;
   const fileInput = document.getElementById('post-image');
   const file = fileInput.files[0];
 
@@ -118,7 +145,8 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
     is_anonymous: isAnonymous,
     title,
     body,
-    image_url: imageUrl
+    image_url: imageUrl,
+    game_id: gameId
   });
 
   if (insertErr) {
@@ -132,15 +160,19 @@ document.getElementById('post-submit-btn').addEventListener('click', async () =>
   document.getElementById('post-title').value = '';
   document.getElementById('post-body').value = '';
   document.getElementById('post-anonymous').checked = false;
+  postGameSelect.value = '';
   fileInput.value = '';
   loadPosts();
 });
 
 async function loadPosts() {
   const listEl = document.getElementById('posts-list');
+
+  await loadGamesCache();
+
   const { data: posts, error } = await supabaseClient
     .from('posts')
-    .select('id, title, body, image_url, author_name, is_anonymous, author_id, created_at')
+    .select('id, title, body, image_url, author_name, is_anonymous, author_id, created_at, game_id, games(name, played_on)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -157,14 +189,46 @@ async function loadPosts() {
   listEl.innerHTML = posts.map(p => {
     const displayName = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
     const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
-    const canDelete = Civ6Auth.currentUser && p.author_id === Civ6Auth.currentUser.id;
+    const canEdit = Civ6Auth.currentUser && (p.author_id === Civ6Auth.currentUser.id || Civ6Auth.isAdmin);
+    const gameTag = p.games ? `<a class="pill" href="oyun-tarihi.html#game-${p.game_id}">🎮 ${escapeHtml(gameLabel(p.games))}</a>` : '';
+
     return `
       <div class="post-card">
-        ${canDelete ? `<button class="delete-post" data-id="${p.id}" id="delete-post">Sil</button>` : ''}
-        <h3>${escapeHtml(p.title)}</h3>
-        <div class="post-meta">${displayName} tarafından · ${date}</div>
-        ${p.image_url ? `<img class="post-image" src="${p.image_url}" alt="">` : ''}
-        <div class="post-body">${escapeHtml(p.body)}</div>
+        <div id="view-${p.id}">
+          <div style="float:right;">
+            ${canEdit ? `<button class="edit-post" data-id="${p.id}">Düzenle</button>` : ''}
+            ${canEdit ? `<button class="delete-post" data-id="${p.id}">Sil</button>` : ''}
+          </div>
+          <h3>${escapeHtml(p.title)}</h3>
+          <div class="post-meta">${displayName} tarafından · ${date} ${gameTag}</div>
+          ${p.image_url ? `<img class="post-image" src="${p.image_url}" alt="">` : ''}
+          <div class="post-body">${escapeHtml(p.body)}</div>
+        </div>
+        ${canEdit ? `
+        <div id="edit-form-${p.id}" style="display:none; margin-top:1rem;">
+          <label>Başlık</label>
+          <input type="text" class="edit-title" value="${escapeHtml(p.title)}">
+          <label>Hikaye</label>
+          <textarea class="edit-body">${escapeHtml(p.body)}</textarea>
+          <label>İlgili Oyun</label>
+          <select class="edit-game-select">${gameOptionsHtml(p.game_id)}</select>
+          ${p.image_url ? `
+            <img class="post-image" src="${p.image_url}" alt="" style="max-width:220px;">
+            <div class="checkbox-row">
+              <input type="checkbox" class="edit-remove-image" id="remove-img-${p.id}">
+              <label for="remove-img-${p.id}">Fotoğrafı kaldır</label>
+            </div>
+          ` : ''}
+          <label>${p.image_url ? 'Fotoğrafı Değiştir' : 'Fotoğraf Ekle'} (isteğe bağlı)</label>
+          <input type="file" class="edit-image-file" accept="image/*">
+          <div class="checkbox-row">
+            <input type="checkbox" class="edit-anonymous" id="anon-${p.id}" ${p.is_anonymous ? 'checked' : ''}>
+            <label for="anon-${p.id}">Anonim olarak paylaş</label>
+          </div>
+          <button class="edit-save-btn" data-id="${p.id}">Kaydet</button>
+          <button type="button" class="secondary edit-cancel-btn" data-id="${p.id}">Vazgeç</button>
+          <div class="edit-msg"></div>
+        </div>` : ''}
       </div>
     `;
   }).join('');
@@ -176,6 +240,81 @@ async function loadPosts() {
       loadPosts();
     });
   });
+
+  document.querySelectorAll('.edit-post').forEach(btn => {
+    btn.addEventListener('click', () => toggleEditForm(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.edit-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleEditForm(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.edit-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const postId = btn.dataset.id;
+      const post = posts.find(x => x.id === postId);
+      const formEl = document.getElementById(`edit-form-${postId}`);
+      submitPostEdit(postId, formEl, post.image_url);
+    });
+  });
+}
+
+function toggleEditForm(postId) {
+  const view = document.getElementById(`view-${postId}`);
+  const form = document.getElementById(`edit-form-${postId}`);
+  const opening = form.style.display !== 'block';
+  form.style.display = opening ? 'block' : 'none';
+  view.style.display = opening ? 'none' : 'block';
+}
+
+async function submitPostEdit(postId, formEl, currentImageUrl) {
+  const msgEl = formEl.querySelector('.edit-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const title = formEl.querySelector('.edit-title').value.trim();
+  const body = formEl.querySelector('.edit-body').value.trim();
+  const gameId = formEl.querySelector('.edit-game-select').value || null;
+  const isAnonymous = formEl.querySelector('.edit-anonymous').checked;
+  const removeImageEl = formEl.querySelector('.edit-remove-image');
+  const removeImage = removeImageEl ? removeImageEl.checked : false;
+  const fileInput = formEl.querySelector('.edit-image-file');
+  const file = fileInput.files[0];
+
+  if (!title || !body) {
+    msgEl.textContent = 'Lütfen bir başlık ve biraz hikaye metni ekle.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  let imageUrl = currentImageUrl || null;
+
+  if (file) {
+    const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const { error: uploadErr } = await supabaseClient.storage.from('blog-images').upload(path, file);
+    if (uploadErr) {
+      msgEl.textContent = 'Fotoğraf yüklenemedi: ' + uploadErr.message;
+      msgEl.className = 'error';
+      return;
+    }
+    const { data: publicUrlData } = supabaseClient.storage.from('blog-images').getPublicUrl(path);
+    imageUrl = publicUrlData.publicUrl;
+  } else if (removeImage) {
+    imageUrl = null;
+  }
+
+  const { error: updateErr } = await supabaseClient
+    .from('posts')
+    .update({ title, body, is_anonymous: isAnonymous, game_id: gameId, image_url: imageUrl })
+    .eq('id', postId);
+
+  if (updateErr) {
+    msgEl.textContent = 'Güncellenemedi: ' + updateErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  loadPosts();
 }
 
 function escapeHtml(str) {
