@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oyuncu Profili — Civ 6 Şeref Listesi</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <div id="auth-widget" class="auth-widget"></div>
+    <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  </div>
+  <nav>
+    <a href="index.html">Şeref Listesi</a>
+    <a href="oyun-tarihi.html">Oyun Tarihi</a>
+    <a href="rules.html">Kurallar</a>
+    <a href="blog.html">Blog</a>
+    <a href="playlist.html">Çalma Listesi</a>
+    <a href="admin.html">Yönetim</a>
+  </nav>
+</header>
+
+<div class="hero-banner">
+  <div class="crest">🛡️</div>
+  <h1 id="player-name-heading">Yükleniyor...</h1>
+  <p id="player-subtitle" class="muted"></p>
+</div>
+
+<main>
+  <section class="panel">
+    <p class="muted">Bu kahramanın hikayesi henüz yazılmadı. Yakında burada oyuncunun istatistikleri, favori medeniyetleri ve daha fazlası yer alacak.</p>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const playerName = params.get('oyuncu') || '';
+
+document.getElementById('player-name-heading').textContent = playerName || 'Bilinmeyen Kahraman';
+
+async function loadLinkedAccount() {
+  if (!playerName) return;
+  const { data: profile } = await supabaseClient
+    .from('profiles')
+    .select('username')
+    .eq('player_name', playerName)
+    .maybeSingle();
+
+  if (profile) {
+    document.getElementById('player-subtitle').textContent = `Bu kahramanı temsil eden üye: ${profile.username}`;
+  }
+}
+
+loadLinkedAccount();
+</script>
+</body>
+</html>

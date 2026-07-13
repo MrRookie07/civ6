@@ -71,6 +71,13 @@
     <h2>📜 Kayıtlı Oyunlar</h2>
     <div id="manage-list" class="muted">Yükleniyor...</div>
   </section>
+
+  <section class="panel" id="members-panel" style="display:none;">
+    <h2>👥 Üyeler</h2>
+    <p class="muted">Bir üyeyi Şeref Listesi'ndeki bir oyuncuyla eşleştirirsen, o oyuncunun profil sayfasında bu üyenin adı görünür.</p>
+    <div id="members-list" class="muted">Yükleniyor...</div>
+    <div id="members-msg"></div>
+  </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -86,6 +93,7 @@ const notAdminPanel = document.getElementById('not-admin-panel');
 const newGamePanel = document.getElementById('new-game-panel');
 const inProgressPanel = document.getElementById('in-progress-panel');
 const managePanel = document.getElementById('manage-panel');
+const membersPanel = document.getElementById('members-panel');
 
 document.getElementById('game-date').value = new Date().toISOString().slice(0, 10);
 
@@ -100,10 +108,12 @@ Civ6Auth.onChange(() => {
   newGamePanel.style.display = showAdmin ? 'block' : 'none';
   inProgressPanel.style.display = showAdmin ? 'block' : 'none';
   managePanel.style.display = showAdmin ? 'block' : 'none';
+  membersPanel.style.display = showAdmin ? 'block' : 'none';
 
   if (showAdmin) {
     loadInProgressList();
     loadManageList();
+    loadMembers();
   }
 });
 
@@ -352,9 +362,68 @@ async function loadManageList() {
   });
 }
 
+async function loadMembers() {
+  const listEl = document.getElementById('members-list');
+
+  const { data: members, error } = await supabaseClient
+    .from('profiles')
+    .select('id, username, is_admin, player_name')
+    .order('username', { ascending: true });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Üyeler yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!members || members.length === 0) {
+    listEl.innerHTML = `<p class="muted">Henüz üye yok.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = members.map(m => `
+    <div class="member-row">
+      <div class="member-info">
+        <strong>${escapeHtml(m.username)}</strong>
+        ${m.is_admin ? '<span class="pill">Yönetici</span>' : ''}
+      </div>
+      <div class="member-link">
+        <label style="margin:0;">Şeref Listesi Bağlantısı</label>
+        <select class="member-player-select" data-id="${m.id}">
+          <option value="">— Bağlantı Yok —</option>
+          ${ROSTER.map(name => `<option value="${name}"${m.player_name === name ? ' selected' : ''}>${name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.member-player-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const msgEl = document.getElementById('members-msg');
+      msgEl.textContent = '';
+      msgEl.className = '';
+
+      const { error: updErr } = await supabaseClient
+        .from('profiles')
+        .update({ player_name: sel.value || null })
+        .eq('id', sel.dataset.id);
+
+      if (updErr) {
+        msgEl.textContent = 'Güncellenemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      msgEl.textContent = 'Bağlantı güncellendi.';
+      msgEl.className = 'success';
+    });
+  });
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 </script>
+
 </body>
 </html>

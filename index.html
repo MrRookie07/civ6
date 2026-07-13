@@ -285,7 +285,7 @@ async function loadData() {
   leaderboardBody.innerHTML = sorted.map(([name, stats], i) => `
     <div class="lb-row${i < 3 ? ' rank-' + (i + 1) : ''}">
       <span class="lb-rank">${i + 1}</span>
-      <span class="lb-name">${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}${escapeHtml(name)}</span>
+      <span class="lb-name">${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}<a href="profil.html?oyuncu=${encodeURIComponent(name)}">${escapeHtml(name)}</a></span>
       <span class="lb-stats"><strong>${stats.points}</strong> puan · ${stats.games} oyun</span>
     </div>
   `).join('');
@@ -304,7 +304,7 @@ async function loadData() {
       const r = (g.results || []).find(res => res.player_name === name);
       return `<td>${r ? r.points : '–'}</td>`;
     }).join('');
-    return `<tr><td>${escapeHtml(name)}</td>${cells}</tr>`;
+    return `<tr><td><a href="profil.html?oyuncu=${encodeURIComponent(name)}">${escapeHtml(name)}</a></td>${cells}</tr>`;
   }).join('');
 }
 
