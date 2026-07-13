@@ -33,6 +33,24 @@
     <h2>🗺️ Tüm Oyunlar</h2>
     <div id="history-list" class="muted">Yükleniyor...</div>
   </section>
+
+  <section class="panel" id="archive-compose-panel" style="display:none;">
+    <h2>➕ Arşive Ekle</h2>
+    <label for="archive-image">Fotoğraf (isteğe bağlı)</label>
+    <input type="file" id="archive-image" accept="image/*">
+    <label for="archive-video">Video Bağlantısı (isteğe bağlı)</label>
+    <input type="text" id="archive-video" placeholder="https://www.youtube.com/watch?v=...">
+    <label for="archive-caption">Bağlam / Kısa Hikaye (isteğe bağlı)</label>
+    <textarea id="archive-caption" placeholder="Bu anın hikayesi..."></textarea>
+    <button id="archive-submit-btn">Arşive Ekle</button>
+    <div id="archive-msg"></div>
+  </section>
+
+  <section class="panel">
+    <h2>🖼️ Arşiv</h2>
+    <p class="muted">Geçmiş oyunlardan anılar — belirli bir oyuna bağlı olması gerekmeyen fotoğraflar, videolar ve küçük hikayeler.</p>
+    <div class="archive-grid" id="archive-grid">Yükleniyor...</div>
+  </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -98,11 +116,124 @@ async function loadGames() {
   }).join('');
 }
 
+const archiveComposePanel = document.getElementById('archive-compose-panel');
+
+Civ6Auth.onChange(() => {
+  archiveComposePanel.style.display = Civ6Auth.isAdmin ? 'block' : 'none';
+});
+
+function getYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+document.getElementById('archive-submit-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('archive-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const fileInput = document.getElementById('archive-image');
+  const file = fileInput.files[0];
+  const videoUrl = document.getElementById('archive-video').value.trim();
+  const caption = document.getElementById('archive-caption').value.trim();
+
+  if (!file && !videoUrl && !caption) {
+    msgEl.textContent = 'En az bir fotoğraf, video bağlantısı ya da hikaye ekle.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  let imageUrl = null;
+  if (file) {
+    const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const { error: upErr } = await supabaseClient.storage.from('archive-images').upload(path, file);
+    if (upErr) {
+      msgEl.textContent = 'Fotoğraf yüklenemedi: ' + upErr.message;
+      msgEl.className = 'error';
+      return;
+    }
+    const { data: pub } = supabaseClient.storage.from('archive-images').getPublicUrl(path);
+    imageUrl = pub.publicUrl;
+  }
+
+  const { error: insErr } = await supabaseClient.from('archive_items').insert({
+    author_id: Civ6Auth.currentUser.id,
+    image_url: imageUrl,
+    video_url: videoUrl || null,
+    caption: caption || null
+  });
+
+  if (insErr) {
+    msgEl.textContent = 'Eklenemedi: ' + insErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Arşive eklendi!';
+  msgEl.className = 'success';
+  fileInput.value = '';
+  document.getElementById('archive-video').value = '';
+  document.getElementById('archive-caption').value = '';
+  loadArchive();
+});
+
+async function loadArchive() {
+  const gridEl = document.getElementById('archive-grid');
+
+  const { data: items, error } = await supabaseClient
+    .from('archive_items')
+    .select('id, image_url, video_url, caption, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    gridEl.innerHTML = `<p class="error">Arşiv yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!items || items.length === 0) {
+    gridEl.innerHTML = `<p class="muted">Arşiv henüz boş.</p>`;
+    return;
+  }
+
+  gridEl.innerHTML = items.map(it => {
+    const date = new Date(it.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const ytId = getYouTubeId(it.video_url);
+    let media = '';
+    if (it.image_url) {
+      media = `<img src="${escapeHtml(it.image_url)}" alt="">`;
+    } else if (ytId) {
+      media = `<a href="${escapeHtml(it.video_url)}" target="_blank" rel="noopener"><img class="archive-video-thumb" src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt=""></a>`;
+    }
+    return `
+      <div class="archive-card">
+        ${media}
+        <div class="archive-body">
+          ${it.caption ? `<div class="archive-caption">${escapeHtml(it.caption)}</div>` : ''}
+          ${it.video_url ? `<a class="pill" href="${escapeHtml(it.video_url)}" target="_blank" rel="noopener">▶️ Videoyu İzle</a>` : ''}
+          <div class="archive-date">${date}</div>
+          ${Civ6Auth.isAdmin ? `<div class="card-actions"><button class="danger delete-archive" data-id="${it.id}">Sil</button></div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.delete-archive').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Bu arşiv öğesi silinsin mi?')) return;
+      await supabaseClient.from('archive_items').delete().eq('id', btn.dataset.id);
+      loadArchive();
+    });
+  });
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 loadGames();
+loadArchive();
 </script>
 </body>
 </html>

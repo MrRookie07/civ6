@@ -419,6 +419,49 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   color: var(--accent2);
 }
 
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+}
+
+.archive-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.015);
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-card img, .archive-card .archive-video-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.archive-card .archive-body {
+  padding: 0.8rem 0.9rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.archive-card .archive-caption {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.archive-card .archive-date {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: "Cinzel", serif;
+}
+
 .tab-row {
   display: flex;
   gap: 0.5rem;
