@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Civ 6 Şeref Listesi</title>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="style-premium.css">
 </head>
 <body>
 <header>
@@ -52,6 +51,32 @@
 </div>
 
 <main>
+  <section class="panel panel-spotlight">
+    <h2>🏆 Sıralama</h2>
+    <p class="muted">Yalnızca dereceli ve tamamlanmış oyunlardaki toplam puanlar.</p>
+    <div class="leaderboard-grid" id="leaderboard-grid">
+      <div class="lb-head-row">
+        <span>#</span><span>Oyuncu</span><span>Puan / Oyun</span>
+      </div>
+      <div id="leaderboard-body" class="muted">Yükleniyor...</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>📊 Oyuna Göre Puanlar</h2>
+    <p class="muted">Her dereceli ve tamamlanmış oyunda oyuncuların aldığı puanlar.</p>
+    <div class="table-scroll">
+      <table id="matrix-table">
+        <thead id="matrix-head">
+          <tr><th>Oyuncu</th></tr>
+        </thead>
+        <tbody id="matrix-body">
+          <tr><td class="muted">Yükleniyor...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="panel" id="meydan-panel">
     <h2>🏟️ Meydan</h2>
     <p class="muted">Kısa notlar, anlık düşünceler ve oyun içi anlar — en fazla 180 karakter.</p>
@@ -77,32 +102,6 @@
     </div>
 
     <div id="entries-list" class="muted">Yükleniyor...</div>
-  </section>
-
-  <section class="panel">
-    <h2>🏆 Sıralama</h2>
-    <p class="muted">Yalnızca dereceli ve tamamlanmış oyunlardaki toplam puanlar.</p>
-    <div class="leaderboard-grid" id="leaderboard-grid">
-      <div class="lb-head-row">
-        <span>#</span><span>Oyuncu</span><span>Puan / Oyun</span>
-      </div>
-      <div id="leaderboard-body" class="muted">Yükleniyor...</div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>📊 Oyuna Göre Puanlar</h2>
-    <p class="muted">Her dereceli ve tamamlanmış oyunda oyuncuların aldığı puanlar.</p>
-    <div class="table-scroll">
-      <table id="matrix-table">
-        <thead id="matrix-head">
-          <tr><th>Oyuncu</th></tr>
-        </thead>
-        <tbody id="matrix-body">
-          <tr><td class="muted">Yükleniyor...</td></tr>
-        </tbody>
-      </table>
-    </div>
   </section>
 
   <section class="panel">
