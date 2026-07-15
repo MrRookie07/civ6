@@ -263,7 +263,7 @@ async function submitFinishForm(gameId, formEl) {
   let duplicate = false;
 
   formEl.querySelectorAll('.finish-rank').forEach(sel => {
-    const name = sel.value;
+    const name = sel.value.trim();
     const rank = parseInt(sel.dataset.rank, 10);
     if (name) {
       if (selected.includes(name)) duplicate = true;
