@@ -84,7 +84,7 @@ async function loadGames() {
 
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, status, ranked, results(player_name, rank, points), game_images(image_url)')
+    .select('id, played_on, name, description, highlights, note, status, ranked, results(player_name, rank, points), game_images(image_url), game_badges(player_name, badges(name, icon, points))')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -119,12 +119,16 @@ async function loadGames() {
       ? '<span class="pill">Dereceli</span>'
       : '<span class="pill dim">Derecesiz</span>';
     const relatedPosts = postsByGame[g.id] || [];
+    const awardedBadges = (g.game_badges || []).filter(a => a.badges);
     return `
       <div class="game-card" id="game-${g.id}">
         <div class="date-info">${g.played_on} · ${statusPill} ${rankedPill}</div>
         <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : ''}
+        ${awardedBadges.length ? `
+          <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan)` : ''}`).join(' · ')}</p>
+        ` : ''}
         ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
         ${relatedPosts.length ? `

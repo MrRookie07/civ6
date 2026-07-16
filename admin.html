@@ -94,6 +94,24 @@
     <div id="manage-list" class="muted">Yükleniyor...</div>
   </section>
 
+  <section class="panel" id="badges-panel" style="display:none;">
+    <h2>🏅 Rozetler</h2>
+    <p class="muted">Oyun sonunda oyunculara verilebilecek rozet türlerini burada tanımla. Bonus puanlı bir rozet, aldığı oyuncunun Şeref Listesi toplamına eklenir (yalnızca dereceli ve tamamlanmış oyunlarda). Rozetlerin kendisini belirli bir oyuna ve oyuncuya vermek için "Kayıtlı Oyunlar" listesindeki "Rozet Ver" düğmesini kullan.</p>
+    <div id="badges-list" class="muted">Yükleniyor...</div>
+
+    <h3 style="margin-top:1.4rem;">Yeni Rozet Oluştur</h3>
+    <label for="badge-name">Ad</label>
+    <input type="text" id="badge-name" placeholder="örn. Büyük Savunmacı">
+    <label for="badge-icon">İkon (emoji)</label>
+    <input type="text" id="badge-icon" placeholder="🛡️" maxlength="4">
+    <label for="badge-points">Bonus Puan</label>
+    <input type="number" id="badge-points" value="0" step="1">
+    <label for="badge-description">Açıklama (isteğe bağlı)</label>
+    <textarea id="badge-description" placeholder="Bu rozet ne için verilir?"></textarea>
+    <button id="badge-create-btn">Rozet Oluştur</button>
+    <div id="badge-create-msg"></div>
+  </section>
+
   <section class="panel" id="members-panel" style="display:none;">
     <h2>👥 Üyeler</h2>
     <p class="muted">Bir üyeyi Şeref Listesi'ndeki bir oyuncuyla eşleştirirsen, o oyuncunun profil sayfasında bu üyenin adı görünür.</p>
@@ -107,7 +125,7 @@
 <script src="auth.js"></script>
 <script>
 const RANK_LABELS = ['1.', '2.', '3.', '4.', '5.', '6.'];
-const RANK_POINTS = [6, 4, 3, 2, 1, 0];
+const RANK_POINTS = [7, 4, 3, 2, 1, 0];
 const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
 
 const notLoggedInPanel = document.getElementById('not-logged-in-panel');
@@ -115,7 +133,10 @@ const notAdminPanel = document.getElementById('not-admin-panel');
 const newGamePanel = document.getElementById('new-game-panel');
 const inProgressPanel = document.getElementById('in-progress-panel');
 const managePanel = document.getElementById('manage-panel');
+const badgesPanel = document.getElementById('badges-panel');
 const membersPanel = document.getElementById('members-panel');
+
+let badgesCache = [];
 
 document.getElementById('game-date').value = new Date().toISOString().slice(0, 10);
 
@@ -130,11 +151,15 @@ Civ6Auth.onChange(() => {
   newGamePanel.style.display = showAdmin ? 'block' : 'none';
   inProgressPanel.style.display = showAdmin ? 'block' : 'none';
   managePanel.style.display = showAdmin ? 'block' : 'none';
+  badgesPanel.style.display = showAdmin ? 'block' : 'none';
   membersPanel.style.display = showAdmin ? 'block' : 'none';
 
   if (showAdmin) {
-    loadInProgressList();
-    loadManageList();
+    loadBadgesCache().then(() => {
+      loadInProgressList();
+      loadManageList();
+      loadBadgesList();
+    });
     loadMembers();
   }
 });
@@ -327,7 +352,7 @@ async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, ranked, results(player_name, rank, points), game_images(image_url)')
+    .select('id, played_on, name, description, highlights, note, ranked, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
     .eq('status', 'completed')
     .order('created_at', { ascending: false });
 
@@ -344,6 +369,7 @@ async function loadManageList() {
   listEl.innerHTML = games.map(g => {
     const sorted = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
     const title = g.name || g.note || `${g.played_on} tarihli oyun`;
+    const awarded = g.game_badges || [];
     return `
       <div class="game-card">
         <div class="date-row">
@@ -352,6 +378,7 @@ async function loadManageList() {
           </div>
           <div class="card-actions">
             <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+            <button data-id="${g.id}" class="secondary award-badges-btn">🏅 Rozet Ver</button>
             <button data-id="${g.id}" class="danger delete-game">Sil</button>
           </div>
         </div>
@@ -360,11 +387,20 @@ async function loadManageList() {
         <ol>
           ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
         </ol>
+        ${awarded.length ? `<p class="muted">${awarded.map(a => `${escapeHtml(a.badges?.icon || '🏅')} ${escapeHtml(a.badges?.name || '')}: ${escapeHtml(a.player_name)}`).join(' · ')}</p>` : ''}
         ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
+        <div class="badge-award-form" id="badge-award-form-${g.id}" style="display:none; margin-top:1rem;"></div>
       </div>
     `;
   }).join('');
+
+  document.querySelectorAll('.award-badges-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const game = games.find(x => x.id === btn.dataset.id);
+      toggleBadgeAwardForm(game);
+    });
+  });
 
   document.querySelectorAll('.delete-game').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -383,6 +419,210 @@ async function loadManageList() {
     });
   });
 }
+
+function toggleBadgeAwardForm(game) {
+  const formEl = document.getElementById(`badge-award-form-${game.id}`);
+  const opening = formEl.style.display !== 'block';
+
+  if (!opening) {
+    formEl.style.display = 'none';
+    return;
+  }
+
+  const participants = (game.results || []).map(r => r.player_name);
+  const existing = {};
+  (game.game_badges || []).forEach(a => { existing[a.badge_id] = a.player_name; });
+
+  if (badgesCache.length === 0) {
+    formEl.innerHTML = `<p class="muted">Henüz tanımlı rozet yok. Önce yukarıdaki Rozetler panelinden bir tane oluştur.</p>`;
+  } else {
+    formEl.innerHTML = badgesCache.map(b => `
+      <label>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}${b.points ? ` (${b.points > 0 ? '+' : ''}${b.points} puan)` : ''}</label>
+      <select class="badge-award-select" data-badge-id="${b.id}">
+        <option value="">— Kimse —</option>
+        ${participants.map(p => `<option value="${escapeHtml(p)}"${existing[b.id] === p ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+      </select>
+    `).join('') + `
+      <button class="save-badges-btn" data-id="${game.id}">Rozetleri Kaydet</button>
+      <div class="badge-award-msg"></div>
+    `;
+
+    formEl.querySelector('.save-badges-btn').addEventListener('click', () => saveBadgeAwards(game.id, formEl));
+  }
+
+  formEl.style.display = 'block';
+}
+
+async function saveBadgeAwards(gameId, formEl) {
+  const msgEl = formEl.querySelector('.badge-award-msg');
+  msgEl.textContent = 'Kaydediliyor...';
+  msgEl.className = 'muted';
+
+  const selects = formEl.querySelectorAll('.badge-award-select');
+
+  for (const sel of selects) {
+    const badgeId = sel.dataset.badgeId;
+    const playerName = sel.value;
+
+    if (playerName) {
+      const { error } = await supabaseClient
+        .from('game_badges')
+        .upsert({ game_id: gameId, badge_id: badgeId, player_name: playerName }, { onConflict: 'game_id,badge_id' });
+      if (error) {
+        msgEl.textContent = 'Kaydedilemedi: ' + error.message;
+        msgEl.className = 'error';
+        return;
+      }
+    } else {
+      await supabaseClient.from('game_badges').delete().eq('game_id', gameId).eq('badge_id', badgeId);
+    }
+  }
+
+  msgEl.textContent = 'Rozetler kaydedildi.';
+  msgEl.className = 'success';
+  loadManageList();
+}
+
+async function loadBadgesCache() {
+  const { data: badges, error } = await supabaseClient
+    .from('badges')
+    .select('id, name, icon, points, description')
+    .order('created_at', { ascending: true });
+
+  if (!error) {
+    badgesCache = badges || [];
+  }
+}
+
+function badgeRowHtml(b) {
+  return `
+    <div class="member-row" id="badge-view-${b.id}">
+      <div class="member-info">
+        <strong>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}</strong>
+        <span class="pill">${b.points > 0 ? '+' : ''}${b.points} puan</span>
+      </div>
+      <div class="card-actions">
+        <button class="secondary edit-badge-btn" data-id="${b.id}">Düzenle</button>
+        <button class="danger delete-badge-btn" data-id="${b.id}">Sil</button>
+      </div>
+    </div>
+    ${b.description ? `<p class="muted" style="margin:0 0 0.6rem;">${escapeHtml(b.description)}</p>` : ''}
+    <div class="badge-edit-form" id="badge-edit-${b.id}" style="display:none; margin-bottom:1rem;">
+      <label>Ad</label>
+      <input type="text" class="edit-badge-name" value="${escapeHtml(b.name)}">
+      <label>İkon (emoji)</label>
+      <input type="text" class="edit-badge-icon" value="${escapeHtml(b.icon || '')}" maxlength="4">
+      <label>Bonus Puan</label>
+      <input type="number" class="edit-badge-points" value="${b.points}" step="1">
+      <label>Açıklama</label>
+      <textarea class="edit-badge-description">${escapeHtml(b.description || '')}</textarea>
+      <button class="edit-badge-save-btn" data-id="${b.id}">Kaydet</button>
+      <button type="button" class="secondary edit-badge-cancel-btn" data-id="${b.id}">Vazgeç</button>
+      <div class="edit-badge-msg"></div>
+    </div>
+  `;
+}
+
+function loadBadgesList() {
+  const listEl = document.getElementById('badges-list');
+
+  if (badgesCache.length === 0) {
+    listEl.innerHTML = `<p class="muted">Henüz tanımlı rozet yok.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = badgesCache.map(badgeRowHtml).join('');
+
+  document.querySelectorAll('.edit-badge-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(`badge-edit-${btn.dataset.id}`).style.display = 'block';
+    });
+  });
+
+  document.querySelectorAll('.edit-badge-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(`badge-edit-${btn.dataset.id}`).style.display = 'none';
+    });
+  });
+
+  document.querySelectorAll('.edit-badge-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const formEl = document.getElementById(`badge-edit-${id}`);
+      const msgEl = formEl.querySelector('.edit-badge-msg');
+      const name = formEl.querySelector('.edit-badge-name').value.trim();
+      const icon = formEl.querySelector('.edit-badge-icon').value.trim();
+      const points = parseInt(formEl.querySelector('.edit-badge-points').value, 10) || 0;
+      const description = formEl.querySelector('.edit-badge-description').value.trim();
+
+      if (!name) {
+        msgEl.textContent = 'Rozete bir ad ver.';
+        msgEl.className = 'error';
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from('badges')
+        .update({ name, icon: icon || null, points, description: description || null })
+        .eq('id', id);
+
+      if (error) {
+        msgEl.textContent = 'Güncellenemedi: ' + error.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      await loadBadgesCache();
+      loadBadgesList();
+    });
+  });
+
+  document.querySelectorAll('.delete-badge-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Bu rozet tamamen silinsin mi? Daha önce verilmiş olanlar da kaldırılır.')) return;
+      await supabaseClient.from('badges').delete().eq('id', btn.dataset.id);
+      await loadBadgesCache();
+      loadBadgesList();
+      loadManageList();
+    });
+  });
+}
+
+document.getElementById('badge-create-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('badge-create-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  const name = document.getElementById('badge-name').value.trim();
+  const icon = document.getElementById('badge-icon').value.trim();
+  const points = parseInt(document.getElementById('badge-points').value, 10) || 0;
+  const description = document.getElementById('badge-description').value.trim();
+
+  if (!name) {
+    msgEl.textContent = 'Rozete bir ad ver.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const { error } = await supabaseClient.from('badges').insert({
+    name, icon: icon || null, points, description: description || null
+  });
+
+  if (error) {
+    msgEl.textContent = 'Oluşturulamadı: ' + error.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Rozet oluşturuldu!';
+  msgEl.className = 'success';
+  document.getElementById('badge-name').value = '';
+  document.getElementById('badge-icon').value = '';
+  document.getElementById('badge-points').value = '0';
+  document.getElementById('badge-description').value = '';
+  await loadBadgesCache();
+  loadBadgesList();
+});
 
 async function loadMembers() {
   const listEl = document.getElementById('members-list');

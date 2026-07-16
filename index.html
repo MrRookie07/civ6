@@ -250,7 +250,7 @@ loadEntries();
 async function loadData() {
   const { data: games, error: gErr } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, created_at, results(player_name, rank, points)')
+    .select('id, played_on, name, created_at, results(player_name, rank, points), game_badges(player_name, badges(name, icon, points))')
     .eq('status', 'completed')
     .eq('ranked', true)
     .order('created_at', { ascending: true });
@@ -268,7 +268,8 @@ async function loadData() {
 
   const gameList = games || [];
 
-  // Toplamları hesapla — kadro her zaman görünür, 0 oyunla bile
+  // Toplamları hesapla — kadro her zaman görünür, 0 oyunla bile.
+  // Rozet bonus puanları da (yalnızca dereceli/tamamlanmış oyunlarda) dahil edilir.
   const totals = {};
   ROSTER.forEach(name => { totals[name] = { points: 0, games: 0 }; });
   gameList.forEach(g => {
@@ -276,6 +277,11 @@ async function loadData() {
       if (!totals[r.player_name]) totals[r.player_name] = { points: 0, games: 0 };
       totals[r.player_name].points += r.points;
       totals[r.player_name].games += 1;
+    });
+    (g.game_badges || []).forEach(a => {
+      if (!a.badges) return;
+      if (!totals[a.player_name]) totals[a.player_name] = { points: 0, games: 0 };
+      totals[a.player_name].points += a.badges.points;
     });
   });
 
@@ -301,7 +307,17 @@ async function loadData() {
   matrixBody.innerHTML = ROSTER.map(name => {
     const cells = gameList.map(g => {
       const r = (g.results || []).find(res => res.player_name === name);
-      return `<td>${r ? r.points : '–'}</td>`;
+      const badgeAwards = (g.game_badges || []).filter(a => a.player_name === name && a.badges);
+
+      if (!r && badgeAwards.length === 0) return '<td>–</td>';
+
+      const basePoints = r ? r.points : 0;
+      const bonusPoints = badgeAwards.reduce((sum, a) => sum + a.badges.points, 0);
+      const total = basePoints + bonusPoints;
+      const badgeIcons = badgeAwards.map(a => a.badges.icon || '🏅').join('');
+      const tooltip = badgeAwards.map(a => `${a.badges.name} (${a.badges.points > 0 ? '+' : ''}${a.badges.points})`).join(', ');
+
+      return `<td${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>${total}${badgeIcons ? ` ${badgeIcons}` : ''}</td>`;
     }).join('');
     return `<tr><td><a href="profil.html?oyuncu=${encodeURIComponent(name)}">${escapeHtml(name)}</a></td>${cells}</tr>`;
   }).join('');

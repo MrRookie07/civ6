@@ -53,7 +53,12 @@
 <main>
   <section class="panel">
     <h2>⚖️ Puanlama Kuralları</h2>
-    <p class="muted">Puanlar, her oyunun sonunda elde edilen nihai sıralamaya (skor derecesine) göre verilir.</p>
+    <p class="muted">Puanlar, her oyunun sonunda elde edilen nihai sıralamaya göre verilir. Sıralama şu şekilde belirlenir:</p>
+    <ul class="house-rules">
+      <li><strong>1. sırayı</strong>, oyunda zafer koşulunu sağlayan oyuncu alır — bu oyuncunun oyun içi skorunun yüksekliğinin bir önemi yoktur, zaferi kazanmış olması yeterlidir.</li>
+      <li>Kalan oyuncuların sıralaması, oyunun bitişindeki <strong>oyun içi skorlarına</strong> göre belirlenir: en yüksek skora sahip oyuncu 2. sırayı, bir sonraki en yüksek skora sahip oyuncu 3. sırayı alır ve bu şekilde devam eder.</li>
+      <li>Ancak oyun sırasında <strong>elenen</strong> (tüm şehirlerini/medeniyetini kaybeden) oyuncular bu skor sıralamasının dışında tutulur. Elenen oyuncular, hayatta kalan tüm oyunculardan sonra sıralanır ve kendi aralarındaki sıralama <strong>elenme sırasına</strong> göre belirlenir: en son elenen oyuncu, elenenler arasında en iyi sırayı alır; ilk elenen oyuncu ise en düşük sırada yer alır.</li>
+    </ul>
     <table>
       <thead><tr><th>Sıra</th><th>Puan</th></tr></thead>
       <tbody>
@@ -63,6 +68,17 @@
         <tr><td>4. sıra</td><td>2</td></tr>
         <tr><td>5. sıra</td><td>1</td></tr>
         <tr><td>6. sıra</td><td>0</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>🏅 Rozet Kuralları</h2>
+    <p class="muted">Bir oyun tamamlandıktan sonra yönetici, o oyundaki öne çıkan performanslara özel rozetler verebilir. Her rozetin bonus puanı, rozeti alan oyuncunun Şeref Listesi'ndeki toplamına doğrudan eklenir — ancak yalnızca dereceli ve tamamlanmış oyunlarda. Bir rozet, tek bir oyunda en fazla bir oyuncuya verilebilir. Oyuncuların kazandığı tüm rozetler kendi profil sayfalarında ve Oyun Tarihi'ndeki ilgili oyunun altında listelenir.</p>
+    <table>
+      <thead><tr><th>İkon</th><th>Rozet</th><th>Bonus Puan</th><th>Açıklama</th></tr></thead>
+      <tbody id="badges-rules-body">
+        <tr><td colspan="4" class="muted">Yükleniyor...</td></tr>
       </tbody>
     </table>
   </section>
@@ -83,5 +99,41 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
+<script>
+async function loadBadgeRules() {
+  const bodyEl = document.getElementById('badges-rules-body');
+
+  const { data: badges, error } = await supabaseClient
+    .from('badges')
+    .select('name, icon, points, description')
+    .order('points', { ascending: false });
+
+  if (error) {
+    bodyEl.innerHTML = `<tr><td colspan="4" class="error">Rozetler yüklenemedi.</td></tr>`;
+    console.error(error);
+    return;
+  }
+
+  if (!badges || badges.length === 0) {
+    bodyEl.innerHTML = `<tr><td colspan="4" class="muted">Henüz tanımlı rozet yok.</td></tr>`;
+    return;
+  }
+
+  bodyEl.innerHTML = badges.map(b => `
+    <tr>
+      <td>${escapeHtml(b.icon || '🏅')}</td>
+      <td>${escapeHtml(b.name)}</td>
+      <td>${b.points > 0 ? '+' : ''}${b.points}</td>
+      <td>${escapeHtml(b.description || '—')}</td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadBadgeRules();
+</script>
 </body>
 </html>

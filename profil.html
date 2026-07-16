@@ -54,6 +54,11 @@
   <section class="panel">
     <p class="muted">Bu kahramanın hikayesi henüz yazılmadı. Yakında burada oyuncunun istatistikleri, favori medeniyetleri ve daha fazlası yer alacak.</p>
   </section>
+
+  <section class="panel">
+    <h2>🏅 Kazanılan Rozetler</h2>
+    <div id="badges-list" class="muted">Yükleniyor...</div>
+  </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -78,7 +83,53 @@ async function loadLinkedAccount() {
   }
 }
 
+async function loadBadges() {
+  const listEl = document.getElementById('badges-list');
+  if (!playerName) {
+    listEl.innerHTML = `<p class="muted">Oyuncu belirtilmedi.</p>`;
+    return;
+  }
+
+  const { data: awards, error } = await supabaseClient
+    .from('game_badges')
+    .select('game_id, badges(name, icon, points, description), games(name, played_on, note)')
+    .eq('player_name', playerName)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Rozetler yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  const valid = (awards || []).filter(a => a.badges);
+
+  if (valid.length === 0) {
+    listEl.innerHTML = `<p class="muted">Bu kahraman henüz bir rozet kazanmadı.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = valid.map(a => {
+    const gameTitle = a.games ? (a.games.name || a.games.note || a.games.played_on) : null;
+    return `
+      <div class="member-row">
+        <div class="member-info">
+          <strong>${escapeHtml(a.badges.icon || '🏅')} ${escapeHtml(a.badges.name)}</strong>
+          ${a.badges.points ? `<span class="pill">${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan</span>` : ''}
+        </div>
+        ${gameTitle ? `<a href="oyun-tarihi.html#game-${a.game_id}">${escapeHtml(gameTitle)}</a>` : ''}
+      </div>
+      ${a.badges.description ? `<p class="muted" style="margin:0 0 0.6rem;">${escapeHtml(a.badges.description)}</p>` : ''}
+    `;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 loadLinkedAccount();
+loadBadges();
 </script>
 </body>
 </html>
