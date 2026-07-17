@@ -74,13 +74,10 @@
 
   <section class="panel">
     <h2>🏅 Rozet Kuralları</h2>
-    <p class="muted">Bir oyun tamamlandıktan sonra, o oyundaki öne çıkan performanslara özel rozetler verilebilir. Her rozetin bonus puanı, rozeti alan oyuncunun Şeref Listesi'ndeki toplamına doğrudan eklenir (yalnızca dereceli ve tamamlanmış oyunlarda). Bir rozet, tek bir oyunda en fazla bir oyuncuya verilebilir. Oyuncuların kazandığı tüm rozetler kendi profil sayfalarında ve Oyun Tarihi'ndeki ilgili oyunun altında listelenir.</p>
-    <table>
-      <thead><tr><th>İkon</th><th>Rozet</th><th>Bonus Puan</th><th>Açıklama</th></tr></thead>
-      <tbody id="badges-rules-body">
-        <tr><td colspan="4" class="muted">Yükleniyor...</td></tr>
-      </tbody>
-    </table>
+    <p class="muted">Bir oyun tamamlandıktan sonra yönetici, o oyundaki öne çıkan performanslara özel rozetler verebilir. Her rozetin bonus puanı, rozeti alan oyuncunun Şeref Listesi'ndeki toplamına doğrudan eklenir — ancak yalnızca dereceli ve tamamlanmış oyunlarda. Bir rozet, tek bir oyunda en fazla bir oyuncuya verilebilir. Oyuncuların kazandığı tüm rozetler kendi profil sayfalarında ve Oyun Tarihi'ndeki ilgili oyunun altında listelenir.</p>
+    <ul class="house-rules" id="badges-rules-list">
+      <li class="muted">Yükleniyor...</li>
+    </ul>
   </section>
 
   <section class="panel">
@@ -101,7 +98,7 @@
 <script src="auth.js"></script>
 <script>
 async function loadBadgeRules() {
-  const bodyEl = document.getElementById('badges-rules-body');
+  const listEl = document.getElementById('badges-rules-list');
 
   const { data: badges, error } = await supabaseClient
     .from('badges')
@@ -109,23 +106,22 @@ async function loadBadgeRules() {
     .order('points', { ascending: false });
 
   if (error) {
-    bodyEl.innerHTML = `<tr><td colspan="4" class="error">Rozetler yüklenemedi.</td></tr>`;
+    listEl.innerHTML = `<li class="error">Rozetler yüklenemedi.</li>`;
     console.error(error);
     return;
   }
 
   if (!badges || badges.length === 0) {
-    bodyEl.innerHTML = `<tr><td colspan="4" class="muted">Henüz tanımlı rozet yok.</td></tr>`;
+    listEl.innerHTML = `<li class="muted">Henüz tanımlı rozet yok.</li>`;
     return;
   }
 
-  bodyEl.innerHTML = badges.map(b => `
-    <tr>
-      <td>${escapeHtml(b.icon || '🏅')}</td>
-      <td>${escapeHtml(b.name)}</td>
-      <td>${b.points > 0 ? '+' : ''}${b.points}</td>
-      <td>${escapeHtml(b.description || '—')}</td>
-    </tr>
+  listEl.innerHTML = badges.map(b => `
+    <li>
+      <strong>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}</strong>
+      ${b.points ? ` (${b.points > 0 ? '+' : ''}${b.points} puan)` : ''}
+      ${b.description ? ` — ${escapeHtml(b.description)}` : ''}
+    </li>
   `).join('');
 }
 
