@@ -401,6 +401,15 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   box-shadow: none;
 }
 
+button.danger {
+  background: transparent;
+  border: 1px solid #7a3030;
+  color: #e07a7a;
+  box-shadow: none;
+  text-transform: none;
+  font-weight: 600;
+}
+
 .game-card h3 {
   color: var(--accent);
   font-family: "Cinzel", serif;
@@ -496,6 +505,17 @@ button.secondary:hover { border-color: var(--accent-dim); color: var(--accent); 
   padding: 0.15rem 0.6rem;
   font-size: 0.78rem;
   cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  box-shadow: none;
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+.toggle-comments-btn:hover {
+  background: rgba(212,175,90,0.1);
 }
 
 .comments-section {
