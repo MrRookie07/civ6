@@ -51,6 +51,8 @@
 </div>
 
 <main>
+  <img id="cover-photo-display" class="cover-photo-box" style="display:none;" alt="">
+
   <section class="panel" id="gameinfo-panel" style="display:none;">
     <p id="gameinfo-lede" class="lede"></p>
   </section>
@@ -120,9 +122,9 @@ async function loadGame() {
   document.getElementById('game-subtitle').textContent = `${g.played_on} · ${statusText} · ${rankedText}`;
 
   if (g.cover_image_url) {
-    const heroEl = document.getElementById('hero-banner');
-    heroEl.classList.add('has-cover');
-    heroEl.style.backgroundImage = `linear-gradient(rgba(17,21,28,0.75), rgba(17,21,28,0.88)), url(${g.cover_image_url})`;
+    const coverEl = document.getElementById('cover-photo-display');
+    coverEl.src = g.cover_image_url;
+    coverEl.style.display = 'block';
   }
 
   const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
