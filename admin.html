@@ -352,7 +352,7 @@ async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, ranked, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
+    .select('id, played_on, name, description, highlights, note, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
     .eq('status', 'completed')
     .order('created_at', { ascending: false });
 
@@ -379,10 +379,11 @@ async function loadManageList() {
           <div class="card-actions">
             <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
             <button data-id="${g.id}" class="secondary award-badges-btn">🏅 Rozet Ver</button>
+            <button data-id="${g.id}" class="secondary cover-photo-btn">🖼️ Kapak Fotoğrafı</button>
             <button data-id="${g.id}" class="danger delete-game">Sil</button>
           </div>
         </div>
-        <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
+        <h3 style="margin:0.3rem 0;"><a href="oyun-detay.html?id=${g.id}">${escapeHtml(title)}</a></h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         <ol>
           ${sorted.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}
@@ -391,6 +392,13 @@ async function loadManageList() {
         ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
         <div class="badge-award-form" id="badge-award-form-${g.id}" style="display:none; margin-top:1rem;"></div>
+        <div class="cover-photo-form" id="cover-photo-form-${g.id}" style="display:none; margin-top:1rem;">
+          ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : '<p class="muted">Henüz kapak fotoğrafı yok.</p>'}
+          <input type="file" class="cover-photo-file" accept="image/*">
+          <button class="cover-photo-save-btn" data-id="${g.id}">Yükle</button>
+          ${g.cover_image_url ? `<button type="button" class="secondary cover-photo-remove-btn" data-id="${g.id}">Kaldır</button>` : ''}
+          <div class="cover-photo-msg"></div>
+        </div>
       </div>
     `;
   }).join('');
@@ -399,6 +407,57 @@ async function loadManageList() {
     btn.addEventListener('click', () => {
       const game = games.find(x => x.id === btn.dataset.id);
       toggleBadgeAwardForm(game);
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const formEl = document.getElementById(`cover-photo-form-${btn.dataset.id}`);
+      formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = btn.dataset.id;
+      const formEl = document.getElementById(`cover-photo-form-${gameId}`);
+      const msgEl = formEl.querySelector('.cover-photo-msg');
+      const fileInput = formEl.querySelector('.cover-photo-file');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        msgEl.textContent = 'Önce bir fotoğraf seç.';
+        msgEl.className = 'error';
+        return;
+      }
+
+      msgEl.textContent = 'Yükleniyor...';
+      msgEl.className = 'muted';
+
+      const path = `${gameId}/cover_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      const { error: upErr } = await supabaseClient.storage.from('game-images').upload(path, file);
+      if (upErr) {
+        msgEl.textContent = 'Yüklenemedi: ' + upErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      const { data: pub } = supabaseClient.storage.from('game-images').getPublicUrl(path);
+      const { error: updErr } = await supabaseClient.from('games').update({ cover_image_url: pub.publicUrl }).eq('id', gameId);
+      if (updErr) {
+        msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      loadManageList();
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-remove-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabaseClient.from('games').update({ cover_image_url: null }).eq('id', btn.dataset.id);
+      loadManageList();
     });
   });
 

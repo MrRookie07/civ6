@@ -123,7 +123,7 @@ async function loadGames() {
     return `
       <div class="game-card" id="game-${g.id}">
         <div class="date-info">${g.played_on} · ${statusPill} ${rankedPill}</div>
-        <h3 style="margin:0.3rem 0;">${escapeHtml(title)}</h3>
+        <h3 style="margin:0.3rem 0;"><a href="oyun-detay.html?id=${g.id}">${escapeHtml(title)}</a></h3>
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : ''}
         ${awardedBadges.length ? `

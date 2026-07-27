@@ -224,6 +224,12 @@ tr.rank-3 td:nth-child(2) { color: var(--bronze); font-weight: 700; }
   overflow: hidden;
 }
 
+.hero-banner.has-cover {
+  background-size: cover;
+  background-position: center;
+  padding: 3.2rem 1rem 2.6rem;
+}
+
 .hero-banner::before {
   content: "";
   position: absolute;

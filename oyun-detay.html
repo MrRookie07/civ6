@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oyun Detayı — Civ 6 Şeref Listesi</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <div id="auth-widget" class="auth-widget"></div>
+    <h1>🏛️ Civ 6 Şeref Listesi</h1>
+  </div>
+  <nav>
+    <a href="index.html">Şeref Listesi</a>
+    <a href="oyun-tarihi.html">Oyun Tarihi</a>
+    <a href="rules.html">Kurallar</a>
+    <a href="blog.html">Blog</a>
+    <a href="playlist.html">Çalma Listesi</a>
+    <a href="admin.html">Yönetim</a>
+  </nav>
+</header>
+
+<div class="hero-banner" id="hero-banner">
+  <div class="hero-emblem">
+    <svg class="laurel laurel-left" viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 68 C 10 55, 8 40, 14 20 C 17 10, 20 4, 20 2" fill="none" stroke="var(--accent-dim)" stroke-width="1.3"/>
+      <g fill="var(--accent-dim)">
+        <ellipse cx="12" cy="58" rx="4" ry="9" transform="rotate(-35 12 58)"/>
+        <ellipse cx="9" cy="46" rx="4" ry="9" transform="rotate(-40 9 46)"/>
+        <ellipse cx="10" cy="34" rx="3.6" ry="8" transform="rotate(-30 10 34)"/>
+        <ellipse cx="13" cy="23" rx="3.2" ry="7" transform="rotate(-25 13 23)"/>
+        <ellipse cx="17" cy="13" rx="2.6" ry="6" transform="rotate(-18 17 13)"/>
+      </g>
+    </svg>
+    <div class="crest">🗺️</div>
+    <svg class="laurel laurel-right" viewBox="0 0 40 70" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 68 C 10 55, 8 40, 14 20 C 17 10, 20 4, 20 2" fill="none" stroke="var(--accent-dim)" stroke-width="1.3"/>
+      <g fill="var(--accent-dim)">
+        <ellipse cx="12" cy="58" rx="4" ry="9" transform="rotate(-35 12 58)"/>
+        <ellipse cx="9" cy="46" rx="4" ry="9" transform="rotate(-40 9 46)"/>
+        <ellipse cx="10" cy="34" rx="3.6" ry="8" transform="rotate(-30 10 34)"/>
+        <ellipse cx="13" cy="23" rx="3.2" ry="7" transform="rotate(-25 13 23)"/>
+        <ellipse cx="17" cy="13" rx="2.6" ry="6" transform="rotate(-18 17 13)"/>
+      </g>
+    </svg>
+  </div>
+  <h1 id="game-title-heading">Yükleniyor...</h1>
+  <p id="game-subtitle" class="muted"></p>
+</div>
+
+<main>
+  <section class="panel" id="info-panel">
+    <h2>📜 Genel Bilgi</h2>
+    <div id="game-info" class="muted">Yükleniyor...</div>
+  </section>
+
+  <section class="panel" id="gallery-panel" style="display:none;">
+    <h2>🖼️ Fotoğraflar</h2>
+    <div id="gallery-list"></div>
+  </section>
+
+  <section class="panel">
+    <h2>📖 İlgili Yazılar</h2>
+    <p class="muted">Bu oyuna bağlı blog yazıları, kronolojik sırayla.</p>
+    <div class="table-scroll">
+      <table id="related-posts-table" style="display:none;">
+        <thead><tr><th>Tarih</th><th>Başlık</th><th>Yazar</th></tr></thead>
+        <tbody id="related-posts-body"></tbody>
+      </table>
+    </div>
+    <p id="no-related-posts" class="muted">Bu oyuna bağlı bir yazı yok.</p>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const gameId = params.get('id') || '';
+
+async function loadGame() {
+  const infoEl = document.getElementById('game-info');
+
+  if (!gameId) {
+    document.getElementById('game-title-heading').textContent = 'Oyun Bulunamadı';
+    infoEl.innerHTML = `<p class="error">Bir oyun belirtilmedi.</p>`;
+    return;
+  }
+
+  const { data: g, error } = await supabaseClient
+    .from('games')
+    .select('id, played_on, name, description, highlights, note, status, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(player_name, badges(name, icon, points))')
+    .eq('id', gameId)
+    .maybeSingle();
+
+  if (error || !g) {
+    document.getElementById('game-title-heading').textContent = 'Oyun Bulunamadı';
+    infoEl.innerHTML = `<p class="error">Bu oyun yüklenemedi ya da mevcut değil.</p>`;
+    console.error(error);
+    return;
+  }
+
+  const title = g.name || g.note || `${g.played_on} tarihli oyun`;
+  document.getElementById('game-title-heading').textContent = title;
+
+  const statusText = g.status === 'completed' ? 'Tamamlandı' : 'Devam Ediyor';
+  const rankedText = g.ranked ? 'Dereceli' : 'Derecesiz';
+  document.getElementById('game-subtitle').textContent = `${g.played_on} · ${statusText} · ${rankedText}`;
+
+  if (g.cover_image_url) {
+    const heroEl = document.getElementById('hero-banner');
+    heroEl.classList.add('has-cover');
+    heroEl.style.backgroundImage = `linear-gradient(rgba(17,21,28,0.75), rgba(17,21,28,0.88)), url(${g.cover_image_url})`;
+  }
+
+  const sortedResults = (g.results || []).slice().sort((a, b) => a.rank - b.rank);
+  const awardedBadges = (g.game_badges || []).filter(a => a.badges);
+
+  infoEl.innerHTML = `
+    ${g.description ? `<p>${escapeHtml(g.description)}</p>` : ''}
+    ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : '<p class="muted">Henüz sonuç girilmedi.</p>'}
+    ${awardedBadges.length ? `
+      <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan)` : ''}`).join(' · ')}</p>
+    ` : ''}
+    ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
+  `;
+
+  const images = g.game_images || [];
+  if (images.length > 0) {
+    document.getElementById('gallery-panel').style.display = 'block';
+    document.getElementById('gallery-list').innerHTML = images.map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('');
+  }
+}
+
+async function loadRelatedPosts() {
+  const table = document.getElementById('related-posts-table');
+  const bodyEl = document.getElementById('related-posts-body');
+  const noneEl = document.getElementById('no-related-posts');
+
+  if (!gameId) return;
+
+  const { data: posts, error } = await supabaseClient
+    .from('posts')
+    .select('id, title, author_name, is_anonymous, created_at')
+    .eq('game_id', gameId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    noneEl.textContent = 'Yazılar yüklenemedi.';
+    noneEl.className = 'error';
+    console.error(error);
+    return;
+  }
+
+  if (!posts || posts.length === 0) {
+    return;
+  }
+
+  noneEl.style.display = 'none';
+  table.style.display = '';
+
+  bodyEl.innerHTML = posts.map(p => {
+    const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const author = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
+    return `
+      <tr>
+        <td>${date}</td>
+        <td><a href="blog.html#post-${p.id}">${escapeHtml(p.title)}</a></td>
+        <td>${author}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadGame();
+loadRelatedPosts();
+</script>
+</body>
+</html>
