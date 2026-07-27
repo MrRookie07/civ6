@@ -576,6 +576,32 @@ button.danger {
   margin-top: 1rem;
 }
 
+.lede {
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  font-size: 1.35rem;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--text);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0.4rem 1rem;
+}
+
+.lede::before,
+.lede::after {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 0 auto 0.8rem;
+}
+
+.lede::after {
+  margin: 0.8rem auto 0;
+}
+
 .game-related-posts {
   margin-top: 0.7rem;
   padding-top: 0.6rem;
@@ -763,18 +789,18 @@ button.danger {
   font-size: 1.1rem;
 }
 
-.lb-name a, #matrix-table td a {
+.lb-name a, table td a {
   color: var(--text);
   text-decoration: none;
   border-bottom: 1px dotted var(--accent-dim);
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.lb-name a:visited, #matrix-table td a:visited {
+.lb-name a:visited, table td a:visited {
   color: var(--text);
 }
 
-.lb-name a:hover, #matrix-table td a:hover {
+.lb-name a:hover, table td a:hover {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }

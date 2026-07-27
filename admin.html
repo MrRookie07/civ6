@@ -206,7 +206,7 @@ async function loadInProgressList() {
   const listEl = document.getElementById('in-progress-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, ranked, cover_image_url')
+    .select('id, played_on, name, description, info_text, ranked, cover_image_url')
     .eq('status', 'in_progress')
     .order('created_at', { ascending: false });
 
@@ -228,7 +228,8 @@ async function loadInProgressList() {
         </div>
         <div class="card-actions">
           <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
-          <button data-id="${g.id}" class="secondary edit-info-btn">✏️ Bilgi Metni</button>
+          <button data-id="${g.id}" class="secondary edit-desc-btn">⚙️ Açıklama</button>
+          <button data-id="${g.id}" class="secondary edit-gameinfo-btn">📖 Oyun Bilgisi</button>
           <button data-id="${g.id}" class="secondary cover-photo-btn">🖼️ Kapak Fotoğrafı</button>
         </div>
       </div>
@@ -237,11 +238,17 @@ async function loadInProgressList() {
       ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : ''}
       <button class="finish-game-btn" data-id="${g.id}">Oyunu Bitir</button>
       <div class="finish-form" id="finish-form-${g.id}" style="display:none; margin-top:1rem;"></div>
-      <div class="edit-info-form" id="edit-info-form-${g.id}" style="display:none; margin-top:1rem;">
-        <label>Açıklama / Bilgi Metni</label>
-        <textarea class="edit-info-textarea" placeholder="Harita türü, hız, kural seti, notlar...">${escapeHtml(g.description || '')}</textarea>
-        <button class="edit-info-save-btn" data-id="${g.id}">Kaydet</button>
-        <div class="edit-info-msg"></div>
+      <div class="edit-desc-form" id="edit-desc-form-${g.id}" style="display:none; margin-top:1rem;">
+        <label>Açıklama (harita türü, hız, kural seti, notlar...)</label>
+        <textarea class="edit-desc-textarea" placeholder="Harita türü, hız, kural seti, notlar...">${escapeHtml(g.description || '')}</textarea>
+        <button class="edit-desc-save-btn" data-id="${g.id}">Kaydet</button>
+        <div class="edit-desc-msg"></div>
+      </div>
+      <div class="edit-gameinfo-form" id="edit-gameinfo-form-${g.id}" style="display:none; margin-top:1rem;">
+        <label>Oyun Bilgisi — oyunun kendi sayfasında, kapak fotoğrafının altında öne çıkan şekilde gösterilir</label>
+        <textarea class="edit-gameinfo-textarea" placeholder="Bu oyunun kısa bir anlatısı ya da öne çıkan notu...">${escapeHtml(g.info_text || '')}</textarea>
+        <button class="edit-gameinfo-save-btn" data-id="${g.id}">Kaydet</button>
+        <div class="edit-gameinfo-msg"></div>
       </div>
       <div class="cover-photo-form" id="cover-photo-form-${g.id}" style="display:none; margin-top:1rem;">
         ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : '<p class="muted">Henüz kapak fotoğrafı yok.</p>'}
@@ -257,21 +264,46 @@ async function loadInProgressList() {
     btn.addEventListener('click', () => openFinishForm(btn.dataset.id));
   });
 
-  document.querySelectorAll('.edit-info-btn').forEach(btn => {
+  document.querySelectorAll('.edit-desc-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const formEl = document.getElementById(`edit-info-form-${btn.dataset.id}`);
+      const formEl = document.getElementById(`edit-desc-form-${btn.dataset.id}`);
       formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
     });
   });
 
-  document.querySelectorAll('.edit-info-save-btn').forEach(btn => {
+  document.querySelectorAll('.edit-desc-save-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const gameId = btn.dataset.id;
-      const formEl = document.getElementById(`edit-info-form-${gameId}`);
-      const msgEl = formEl.querySelector('.edit-info-msg');
-      const text = formEl.querySelector('.edit-info-textarea').value.trim();
+      const formEl = document.getElementById(`edit-desc-form-${gameId}`);
+      const msgEl = formEl.querySelector('.edit-desc-msg');
+      const text = formEl.querySelector('.edit-desc-textarea').value.trim();
 
       const { error: updErr } = await supabaseClient.from('games').update({ description: text || null }).eq('id', gameId);
+      if (updErr) {
+        msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      loadInProgressList();
+    });
+  });
+
+  document.querySelectorAll('.edit-gameinfo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const formEl = document.getElementById(`edit-gameinfo-form-${btn.dataset.id}`);
+      formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  document.querySelectorAll('.edit-gameinfo-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = btn.dataset.id;
+      const formEl = document.getElementById(`edit-gameinfo-form-${gameId}`);
+      const msgEl = formEl.querySelector('.edit-gameinfo-msg');
+      const text = formEl.querySelector('.edit-gameinfo-textarea').value.trim();
+
+      const { error: updErr } = await supabaseClient.from('games').update({ info_text: text || null }).eq('id', gameId);
       if (updErr) {
         msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
         msgEl.className = 'error';
@@ -444,7 +476,7 @@ async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, highlights, note, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
+    .select('id, played_on, name, description, info_text, highlights, note, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
     .eq('status', 'completed')
     .order('created_at', { ascending: false });
 
@@ -471,6 +503,7 @@ async function loadManageList() {
           <div class="card-actions">
             <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
             <button data-id="${g.id}" class="secondary award-badges-btn">🏅 Rozet Ver</button>
+            <button data-id="${g.id}" class="secondary edit-gameinfo-btn">📖 Oyun Bilgisi</button>
             <button data-id="${g.id}" class="secondary cover-photo-btn">🖼️ Kapak Fotoğrafı</button>
             <button data-id="${g.id}" class="danger delete-game">Sil</button>
           </div>
@@ -484,6 +517,12 @@ async function loadManageList() {
         ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
         <div class="badge-award-form" id="badge-award-form-${g.id}" style="display:none; margin-top:1rem;"></div>
+        <div class="edit-gameinfo-form" id="edit-gameinfo-form-${g.id}" style="display:none; margin-top:1rem;">
+          <label>Oyun Bilgisi — oyunun kendi sayfasında, kapak fotoğrafının altında öne çıkan şekilde gösterilir</label>
+          <textarea class="edit-gameinfo-textarea" placeholder="Bu oyunun kısa bir anlatısı ya da öne çıkan notu...">${escapeHtml(g.info_text || '')}</textarea>
+          <button class="edit-gameinfo-save-btn" data-id="${g.id}">Kaydet</button>
+          <div class="edit-gameinfo-msg"></div>
+        </div>
         <div class="cover-photo-form" id="cover-photo-form-${g.id}" style="display:none; margin-top:1rem;">
           ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : '<p class="muted">Henüz kapak fotoğrafı yok.</p>'}
           <input type="file" class="cover-photo-file" accept="image/*">
@@ -494,6 +533,31 @@ async function loadManageList() {
       </div>
     `;
   }).join('');
+
+  document.querySelectorAll('.edit-gameinfo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const formEl = document.getElementById(`edit-gameinfo-form-${btn.dataset.id}`);
+      formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  document.querySelectorAll('.edit-gameinfo-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = btn.dataset.id;
+      const formEl = document.getElementById(`edit-gameinfo-form-${gameId}`);
+      const msgEl = formEl.querySelector('.edit-gameinfo-msg');
+      const text = formEl.querySelector('.edit-gameinfo-textarea').value.trim();
+
+      const { error: updErr } = await supabaseClient.from('games').update({ info_text: text || null }).eq('id', gameId);
+      if (updErr) {
+        msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      loadManageList();
+    });
+  });
 
   document.querySelectorAll('.award-badges-btn').forEach(btn => {
     btn.addEventListener('click', () => {
