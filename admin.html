@@ -206,7 +206,7 @@ async function loadInProgressList() {
   const listEl = document.getElementById('in-progress-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, ranked')
+    .select('id, played_on, name, description, ranked, cover_image_url')
     .eq('status', 'in_progress')
     .order('created_at', { ascending: false });
 
@@ -228,17 +228,109 @@ async function loadInProgressList() {
         </div>
         <div class="card-actions">
           <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
+          <button data-id="${g.id}" class="secondary edit-info-btn">✏️ Bilgi Metni</button>
+          <button data-id="${g.id}" class="secondary cover-photo-btn">🖼️ Kapak Fotoğrafı</button>
         </div>
       </div>
       <h3 style="margin:0.3rem 0;">${escapeHtml(g.name)}</h3>
       ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
+      ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : ''}
       <button class="finish-game-btn" data-id="${g.id}">Oyunu Bitir</button>
       <div class="finish-form" id="finish-form-${g.id}" style="display:none; margin-top:1rem;"></div>
+      <div class="edit-info-form" id="edit-info-form-${g.id}" style="display:none; margin-top:1rem;">
+        <label>Açıklama / Bilgi Metni</label>
+        <textarea class="edit-info-textarea" placeholder="Harita türü, hız, kural seti, notlar...">${escapeHtml(g.description || '')}</textarea>
+        <button class="edit-info-save-btn" data-id="${g.id}">Kaydet</button>
+        <div class="edit-info-msg"></div>
+      </div>
+      <div class="cover-photo-form" id="cover-photo-form-${g.id}" style="display:none; margin-top:1rem;">
+        ${g.cover_image_url ? `<img class="post-image" src="${g.cover_image_url}" style="max-height:160px;" alt="">` : '<p class="muted">Henüz kapak fotoğrafı yok.</p>'}
+        <input type="file" class="cover-photo-file" accept="image/*">
+        <button class="cover-photo-save-btn" data-id="${g.id}">Yükle</button>
+        ${g.cover_image_url ? `<button type="button" class="secondary cover-photo-remove-btn" data-id="${g.id}">Kaldır</button>` : ''}
+        <div class="cover-photo-msg"></div>
+      </div>
     </div>
   `).join('');
 
   document.querySelectorAll('.finish-game-btn').forEach(btn => {
     btn.addEventListener('click', () => openFinishForm(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.edit-info-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const formEl = document.getElementById(`edit-info-form-${btn.dataset.id}`);
+      formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  document.querySelectorAll('.edit-info-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = btn.dataset.id;
+      const formEl = document.getElementById(`edit-info-form-${gameId}`);
+      const msgEl = formEl.querySelector('.edit-info-msg');
+      const text = formEl.querySelector('.edit-info-textarea').value.trim();
+
+      const { error: updErr } = await supabaseClient.from('games').update({ description: text || null }).eq('id', gameId);
+      if (updErr) {
+        msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      loadInProgressList();
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const formEl = document.getElementById(`cover-photo-form-${btn.dataset.id}`);
+      formEl.style.display = formEl.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = btn.dataset.id;
+      const formEl = document.getElementById(`cover-photo-form-${gameId}`);
+      const msgEl = formEl.querySelector('.cover-photo-msg');
+      const fileInput = formEl.querySelector('.cover-photo-file');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        msgEl.textContent = 'Önce bir fotoğraf seç.';
+        msgEl.className = 'error';
+        return;
+      }
+
+      msgEl.textContent = 'Yükleniyor...';
+      msgEl.className = 'muted';
+
+      const path = `${gameId}/cover_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      const { error: upErr } = await supabaseClient.storage.from('game-images').upload(path, file);
+      if (upErr) {
+        msgEl.textContent = 'Yüklenemedi: ' + upErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      const { data: pub } = supabaseClient.storage.from('game-images').getPublicUrl(path);
+      const { error: updErr } = await supabaseClient.from('games').update({ cover_image_url: pub.publicUrl }).eq('id', gameId);
+      if (updErr) {
+        msgEl.textContent = 'Kaydedilemedi: ' + updErr.message;
+        msgEl.className = 'error';
+        return;
+      }
+
+      loadInProgressList();
+    });
+  });
+
+  document.querySelectorAll('.cover-photo-remove-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabaseClient.from('games').update({ cover_image_url: null }).eq('id', btn.dataset.id);
+      loadInProgressList();
+    });
   });
 
   document.querySelectorAll('.toggle-ranked').forEach(btn => {
