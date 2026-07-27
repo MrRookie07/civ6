@@ -422,6 +422,18 @@ button.danger {
   font-size: 1.1rem;
 }
 
+.game-card h3 a,
+.game-card h3 a:visited {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 1.2rem;
+}
+
+.game-card h3 a:hover {
+  color: #e2c377;
+  text-decoration: underline;
+}
+
 .finish-form {
   border-top: 1px solid var(--border);
   padding-top: 0.9rem;
