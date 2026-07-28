@@ -16,7 +16,6 @@
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html" class="active">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
@@ -51,34 +50,118 @@
 </div>
 
 <main>
-  <section class="panel">
-    <h2>🗺️ Tüm Oyunlar</h2>
-    <div id="history-list" class="muted">Yükleniyor...</div>
-  </section>
+  <div class="tab-row" id="ot-tab-row">
+    <button type="button" class="tab-btn" data-tab="oyunlar">🗺️ Oyunlar</button>
+    <button type="button" class="tab-btn inactive" data-tab="arsiv">🖼️ Arşiv</button>
+    <button type="button" class="tab-btn inactive" data-tab="vakayiname">📖 Vakayiname</button>
+  </div>
 
-  <section class="panel" id="archive-compose-panel" style="display:none;">
-    <h2>➕ Arşive Ekle</h2>
-    <label for="archive-image">Fotoğraf (isteğe bağlı)</label>
-    <input type="file" id="archive-image" accept="image/*">
-    <label for="archive-video">Video Bağlantısı (isteğe bağlı)</label>
-    <input type="text" id="archive-video" placeholder="https://www.youtube.com/watch?v=...">
-    <label for="archive-caption">Bağlam / Kısa Hikaye (isteğe bağlı)</label>
-    <textarea id="archive-caption" placeholder="Bu anın hikayesi..."></textarea>
-    <button id="archive-submit-btn">Arşive Ekle</button>
-    <div id="archive-msg"></div>
-  </section>
+  <div class="tab-panel" id="tabpanel-oyunlar">
+    <section class="panel">
+      <h2>🗺️ Tüm Oyunlar</h2>
+      <div id="history-list" class="muted">Yükleniyor...</div>
+    </section>
+  </div>
 
-  <section class="panel">
-    <h2>🖼️ Arşiv</h2>
-    <p class="muted">Geçmiş oyunlardan anılar — belirli bir oyuna bağlı olması gerekmeyen fotoğraflar, videolar ve küçük hikayeler.</p>
-    <div class="archive-grid" id="archive-grid">Yükleniyor...</div>
-  </section>
+  <div class="tab-panel" id="tabpanel-arsiv" style="display:none;">
+    <section class="panel" id="archive-compose-panel" style="display:none;">
+      <h2>➕ Arşive Ekle</h2>
+      <label for="archive-image">Fotoğraf (isteğe bağlı)</label>
+      <input type="file" id="archive-image" accept="image/*">
+      <label for="archive-video">Video Bağlantısı (isteğe bağlı)</label>
+      <input type="text" id="archive-video" placeholder="https://www.youtube.com/watch?v=...">
+      <label for="archive-caption">Bağlam / Kısa Hikaye (isteğe bağlı)</label>
+      <textarea id="archive-caption" placeholder="Bu anın hikayesi..."></textarea>
+      <button id="archive-submit-btn">Arşive Ekle</button>
+      <div id="archive-msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2>🖼️ Arşiv</h2>
+      <p class="muted">Geçmiş oyunlardan anılar — belirli bir oyuna bağlı olması gerekmeyen fotoğraflar, videolar ve küçük hikayeler.</p>
+      <div class="archive-grid" id="archive-grid">Yükleniyor...</div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="tabpanel-vakayiname" style="display:none;">
+    <section class="panel">
+      <h2>📖 Vakayiname</h2>
+      <p class="muted">Tüm oyunlardan yazılar, tek bir akışta. Yazmak için bir oyunun kendi sayfasına git.</p>
+      <div id="vakayiname-list" class="muted">Yükleniyor...</div>
+    </section>
+  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script>
+function activateTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('inactive', b.dataset.tab !== tab));
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.style.display = p.id === `tabpanel-${tab}` ? 'block' : 'none';
+  });
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activateTab(btn.dataset.tab);
+    history.replaceState(null, '', `#${btn.dataset.tab}`);
+  });
+});
+
+const validTabs = ['oyunlar', 'arsiv', 'vakayiname'];
+const requestedTab = location.hash.replace('#', '');
+activateTab(validTabs.includes(requestedTab) ? requestedTab : 'oyunlar');
+
+function excerptOf(body, maxLen = 180) {
+  const plain = (body || '')
+    .split('\n')
+    .filter(line => !line.trim().match(/^!\[\]\(\S+\)$/))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= maxLen) return plain;
+  return plain.slice(0, maxLen).trim() + '…';
+}
+
+async function loadVakayiname() {
+  const listEl = document.getElementById('vakayiname-list');
+
+  const { data: posts, error } = await supabaseClient
+    .from('posts')
+    .select('id, title, body, author_name, is_anonymous, created_at, game_id, games(name, played_on), comments(id)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Yazılar yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!posts || posts.length === 0) {
+    listEl.innerHTML = `<p class="muted">Henüz yazı yok.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = posts.map(p => {
+    const displayName = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
+    const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const commentCount = (p.comments || []).length;
+    const gameTag = p.games
+      ? `<a class="pill" href="oyun-detay.html?id=${p.game_id}">🎮 ${escapeHtml(p.games.name || p.games.played_on)}</a>`
+      : '<span class="pill dim">Genel</span>';
+
+    return `
+      <div class="post-card-compact">
+        <h3><a href="yazi.html?id=${p.id}">${escapeHtml(p.title)}</a></h3>
+        <div class="post-meta">${displayName} tarafından · ${date} ${gameTag} <a class="pill" href="yazi.html?id=${p.id}">💬 ${commentCount} yanıt</a></div>
+        <p class="post-excerpt">${escapeHtml(excerptOf(p.body))}</p>
+      </div>
+    `;
+  }).join('');
+}
+
 async function loadGames() {
   const listEl = document.getElementById('history-list');
 
@@ -134,7 +217,7 @@ async function loadGames() {
         ${relatedPosts.length ? `
           <div class="game-related-posts">
             <strong>📖 İlgili Yazılar:</strong>
-            ${relatedPosts.map(p => `<a class="pill" href="blog.html#post-${p.id}">${escapeHtml(p.title)}</a>`).join('')}
+            ${relatedPosts.map(p => `<a class="pill" href="yazi.html?id=${p.id}">${escapeHtml(p.title)}</a>`).join('')}
           </div>
         ` : ''}
       </div>
@@ -260,6 +343,7 @@ function escapeHtml(str) {
 
 loadGames();
 loadArchive();
+loadVakayiname();
 </script>
 </body>
 </html>

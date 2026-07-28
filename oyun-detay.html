@@ -16,7 +16,6 @@
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
@@ -67,16 +66,34 @@
     <div id="gallery-list"></div>
   </section>
 
-  <section class="panel">
-    <h2>📖 İlgili Yazılar</h2>
-    <p class="muted">Bu oyuna bağlı blog yazıları, kronolojik sırayla.</p>
-    <div class="table-scroll">
-      <table id="related-posts-table" style="display:none;">
-        <thead><tr><th>Tarih</th><th>Başlık</th><th>Yazar</th></tr></thead>
-        <tbody id="related-posts-body"></tbody>
-      </table>
+  <section class="panel" id="compose-panel" style="display:none;">
+    <h2>✍️ Bu Oyun Hakkında Yaz</h2>
+    <label for="post-title">Başlık</label>
+    <input type="text" id="post-title" placeholder="örn. Persepolis'in Düşüşü">
+    <label for="post-body">Hikaye</label>
+    <textarea id="post-body" placeholder="Hikayeni anlat... İmleci istediğin yere koyup 'Resim Ekle' ile araya fotoğraf serpiştirebilirsin." style="min-height:200px;"></textarea>
+    <div class="checkbox-row" style="margin-top:0.6rem;">
+      <button type="button" id="post-image-insert-btn" class="secondary">🖼️ Resim Ekle</button>
+      <input type="file" id="post-image-insert-file" accept="image/*" style="display:none;">
+      <span id="post-image-status" class="muted"></span>
     </div>
-    <p id="no-related-posts" class="muted">Bu oyuna bağlı bir yazı yok.</p>
+    <label for="post-audio">🔊 Sesli Özet (isteğe bağlı)</label>
+    <input type="file" id="post-audio" accept="audio/*">
+    <div class="checkbox-row">
+      <input type="checkbox" id="post-anonymous">
+      <label for="post-anonymous">Anonim olarak paylaş</label>
+    </div>
+    <button id="post-submit-btn">Kaydı Yayınla</button>
+    <div id="post-msg"></div>
+  </section>
+
+  <section class="panel" id="login-hint">
+    <p class="muted">Bu oyun hakkında yazmak için üst köşedeki <strong>Giriş Yap</strong> düğmesini kullan.</p>
+  </section>
+
+  <section class="panel">
+    <h2>📖 Bu Oyunun Vakayinamesi</h2>
+    <div id="posts-list" class="muted">Yükleniyor...</div>
   </section>
 </main>
 
@@ -86,6 +103,180 @@
 <script>
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id') || '';
+const composePanel = document.getElementById('compose-panel');
+const loginHint = document.getElementById('login-hint');
+
+Civ6Auth.onChange(() => {
+  const loggedIn = !!(Civ6Auth.currentUser && Civ6Auth.currentUsername);
+  composePanel.style.display = loggedIn ? 'block' : 'none';
+  loginHint.style.display = loggedIn ? 'none' : 'block';
+  loadPosts();
+});
+
+function insertAtCursor(textarea, text) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const before = textarea.value.slice(0, start);
+  const after = textarea.value.slice(end);
+  textarea.value = before + text + after;
+  const cursorPos = start + text.length;
+  textarea.focus();
+  textarea.setSelectionRange(cursorPos, cursorPos);
+}
+
+async function uploadPostImage(file) {
+  const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+  const { error: uploadErr } = await supabaseClient.storage.from('blog-images').upload(path, file);
+  if (uploadErr) throw uploadErr;
+  const { data: publicUrlData } = supabaseClient.storage.from('blog-images').getPublicUrl(path);
+  return publicUrlData.publicUrl;
+}
+
+async function uploadPostAudio(file) {
+  const path = `${Civ6Auth.currentUser.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+  const { error: uploadErr } = await supabaseClient.storage.from('blog-audio').upload(path, file);
+  if (uploadErr) throw uploadErr;
+  const { data: publicUrlData } = supabaseClient.storage.from('blog-audio').getPublicUrl(path);
+  return publicUrlData.publicUrl;
+}
+
+function excerptOf(body, maxLen = 180) {
+  const plain = (body || '')
+    .split('\n')
+    .filter(line => !line.trim().match(/^!\[\]\(\S+\)$/))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= maxLen) return plain;
+  return plain.slice(0, maxLen).trim() + '…';
+}
+
+document.getElementById('post-image-insert-btn').addEventListener('click', () => {
+  document.getElementById('post-image-insert-file').click();
+});
+
+document.getElementById('post-image-insert-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('post-image-status');
+  statusEl.textContent = 'Resim yükleniyor...';
+  statusEl.className = 'muted';
+  try {
+    const url = await uploadPostImage(file);
+    insertAtCursor(document.getElementById('post-body'), `\n![](${url})\n`);
+    statusEl.textContent = 'Resim eklendi.';
+    statusEl.className = 'success';
+  } catch (err) {
+    statusEl.textContent = 'Resim yüklenemedi: ' + err.message;
+    statusEl.className = 'error';
+  }
+  e.target.value = '';
+});
+
+document.getElementById('post-submit-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('post-msg');
+  msgEl.textContent = '';
+  msgEl.className = '';
+
+  if (!Civ6Auth.currentUser || !Civ6Auth.currentUsername) {
+    msgEl.textContent = 'Yazmak için giriş yapmalısın.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  const title = document.getElementById('post-title').value.trim();
+  const body = document.getElementById('post-body').value.trim();
+  const isAnonymous = document.getElementById('post-anonymous').checked;
+  const audioInput = document.getElementById('post-audio');
+  const audioFile = audioInput.files[0];
+
+  if (!title || !body) {
+    msgEl.textContent = 'Lütfen bir başlık ve biraz hikaye metni ekle.';
+    msgEl.className = 'error';
+    return;
+  }
+
+  let audioUrl = null;
+  if (audioFile) {
+    try {
+      audioUrl = await uploadPostAudio(audioFile);
+    } catch (err) {
+      msgEl.textContent = 'Sesli özet yüklenemedi: ' + err.message;
+      msgEl.className = 'error';
+      return;
+    }
+  }
+
+  const { error: insertErr } = await supabaseClient.from('posts').insert({
+    author_id: Civ6Auth.currentUser.id,
+    author_name: Civ6Auth.currentUsername,
+    is_anonymous: isAnonymous,
+    title,
+    body,
+    game_id: gameId,
+    audio_url: audioUrl
+  });
+
+  if (insertErr) {
+    msgEl.textContent = 'Yayınlama başarısız oldu: ' + insertErr.message;
+    msgEl.className = 'error';
+    return;
+  }
+
+  msgEl.textContent = 'Kayıt yayınlandı!';
+  msgEl.className = 'success';
+  document.getElementById('post-title').value = '';
+  document.getElementById('post-body').value = '';
+  document.getElementById('post-anonymous').checked = false;
+  audioInput.value = '';
+  loadPosts();
+});
+
+async function loadPosts() {
+  const listEl = document.getElementById('posts-list');
+  if (!gameId) return;
+
+  const { data: posts, error } = await supabaseClient
+    .from('posts')
+    .select('id, title, body, author_name, is_anonymous, author_id, created_at, comments(id)')
+    .eq('game_id', gameId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="error">Yazılar yüklenemedi.</p>`;
+    console.error(error);
+    return;
+  }
+
+  if (!posts || posts.length === 0) {
+    listEl.innerHTML = `<p class="muted">Bu oyuna bağlı bir yazı yok. İlk yazan sen ol!</p>`;
+    return;
+  }
+
+  listEl.innerHTML = posts.map(p => {
+    const displayName = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
+    const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const canDelete = Civ6Auth.currentUser && (p.author_id === Civ6Auth.currentUser.id || Civ6Auth.isAdmin);
+    const commentCount = (p.comments || []).length;
+
+    return `
+      <div class="post-card-compact">
+        ${canDelete ? `<div class="card-actions"><button type="button" class="danger delete-post" data-id="${p.id}">Sil</button></div>` : ''}
+        <h3><a href="yazi.html?id=${p.id}">${escapeHtml(p.title)}</a></h3>
+        <div class="post-meta">${displayName} tarafından · ${date} <a class="pill" href="yazi.html?id=${p.id}">💬 ${commentCount} yanıt</a></div>
+        <p class="post-excerpt">${escapeHtml(excerptOf(p.body))}</p>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('.delete-post').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Bu yazı silinsin mi?')) return;
+      await supabaseClient.from('posts').delete().eq('id', btn.dataset.id);
+      loadPosts();
+    });
+  });
+}
 
 async function loadGame() {
   const infoEl = document.getElementById('game-info');
@@ -146,52 +337,12 @@ async function loadGame() {
   }
 }
 
-async function loadRelatedPosts() {
-  const table = document.getElementById('related-posts-table');
-  const bodyEl = document.getElementById('related-posts-body');
-  const noneEl = document.getElementById('no-related-posts');
-
-  if (!gameId) return;
-
-  const { data: posts, error } = await supabaseClient
-    .from('posts')
-    .select('id, title, author_name, is_anonymous, created_at')
-    .eq('game_id', gameId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    noneEl.textContent = 'Yazılar yüklenemedi.';
-    noneEl.className = 'error';
-    console.error(error);
-    return;
-  }
-
-  if (!posts || posts.length === 0) {
-    return;
-  }
-
-  noneEl.style.display = 'none';
-  table.style.display = '';
-
-  bodyEl.innerHTML = posts.map(p => {
-    const date = new Date(p.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
-    const author = p.is_anonymous ? 'Anonim Vakanüvis' : escapeHtml(p.author_name || 'Bilinmiyor');
-    return `
-      <tr>
-        <td>${date}</td>
-        <td><a href="blog.html#post-${p.id}">${escapeHtml(p.title)}</a></td>
-        <td>${author}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 loadGame();
-loadRelatedPosts();
+loadPosts();
 </script>
 </body>
 </html>

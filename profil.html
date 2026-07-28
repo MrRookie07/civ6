@@ -16,7 +16,6 @@
     <a href="index.html">Şeref Listesi</a>
     <a href="oyun-tarihi.html">Oyun Tarihi</a>
     <a href="rules.html">Kurallar</a>
-    <a href="blog.html">Blog</a>
     <a href="playlist.html">Çalma Listesi</a>
     <a href="admin.html">Yönetim</a>
   </nav>
@@ -117,7 +116,7 @@ async function loadBadges() {
           <strong>${escapeHtml(a.badges.icon || '🏅')} ${escapeHtml(a.badges.name)}</strong>
           ${a.badges.points ? `<span class="pill">${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan</span>` : ''}
         </div>
-        ${gameTitle ? `<a href="oyun-tarihi.html#game-${a.game_id}">${escapeHtml(gameTitle)}</a>` : ''}
+        ${gameTitle ? `<a href="oyun-detay.html?id=${a.game_id}">${escapeHtml(gameTitle)}</a>` : ''}
       </div>
       ${a.badges.description ? `<p class="muted" style="margin:0 0 0.6rem;">${escapeHtml(a.badges.description)}</p>` : ''}
     `;

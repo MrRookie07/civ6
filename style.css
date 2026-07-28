@@ -488,6 +488,38 @@ button.danger {
   font-style: italic;
 }
 
+.post-card-compact {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  background: rgba(255,255,255,0.015);
+}
+
+.post-card-compact h3 {
+  margin: 0 0 0.3rem;
+  font-family: "Cinzel", serif;
+  font-size: 1.1rem;
+}
+
+.post-card-compact h3 a,
+.post-card-compact h3 a:visited {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.post-card-compact h3 a:hover {
+  color: #e2c377;
+  text-decoration: underline;
+}
+
+.post-excerpt {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0.5rem 0 0;
+}
+
 .post-body {
   line-height: 1.75;
   font-size: 1.08rem;
