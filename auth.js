@@ -10,6 +10,7 @@ const Civ6Auth = (() => {
   let currentUser = null;
   let currentUsername = null;
   let isAdmin = false;
+  let playerName = null;
   let dropdownOpen = false;
   const listeners = [];
 
@@ -32,6 +33,7 @@ const Civ6Auth = (() => {
       currentUser = null;
       currentUsername = null;
       isAdmin = false;
+      playerName = null;
       renderWidget();
       notify();
       return;
@@ -41,16 +43,18 @@ const Civ6Auth = (() => {
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('username, is_admin')
+      .select('username, is_admin, player_name')
       .eq('id', currentUser.id)
       .maybeSingle();
 
     if (!profile) {
       currentUsername = null;
       isAdmin = false;
+      playerName = null;
     } else {
       currentUsername = profile.username;
       isAdmin = !!profile.is_admin;
+      playerName = profile.player_name || null;
     }
 
     renderWidget();
@@ -112,9 +116,15 @@ const Civ6Auth = (() => {
         <button type="button" class="auth-btn" id="auth-toggle-btn">👤 ${escapeHtml(currentUsername)}${isAdmin ? ' ⚔️' : ''} ▾</button>
         <div class="auth-dropdown" id="auth-dropdown" style="display:${dropdownOpen ? 'block' : 'none'};">
           <p class="muted" style="margin-top:0;">Giriş yapan: <strong>${escapeHtml(currentUsername)}</strong>${isAdmin ? ' · <span class="pill">Yönetici</span>' : ''}</p>
+          ${playerName ? `<button type="button" class="secondary" id="profile-link-btn">🎭 Profilim</button>` : ''}
           <button type="button" class="secondary" id="logout-btn">Çıkış Yap</button>
         </div>
       `;
+      if (playerName) {
+        document.getElementById('profile-link-btn').addEventListener('click', () => {
+          location.href = `profil.html?oyuncu=${encodeURIComponent(playerName)}`;
+        });
+      }
       document.getElementById('logout-btn').addEventListener('click', logout);
     } else if (currentUser && !currentUsername) {
       el.innerHTML = `
@@ -261,6 +271,7 @@ const Civ6Auth = (() => {
     get currentUser() { return currentUser; },
     get currentUsername() { return currentUsername; },
     get isAdmin() { return isAdmin; },
+    get playerName() { return playerName; },
   };
 })();
 
