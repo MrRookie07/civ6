@@ -692,6 +692,11 @@ button.danger {
   color: var(--text);
 }
 
+.archive-card audio {
+  display: block;
+  width: 100%;
+}
+
 .archive-card .archive-date {
   font-size: 0.75rem;
   color: var(--muted);

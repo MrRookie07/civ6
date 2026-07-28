@@ -72,6 +72,8 @@
       <input type="text" id="archive-video" placeholder="https://www.youtube.com/watch?v=...">
       <label for="archive-caption">Bağlam / Kısa Hikaye (isteğe bağlı)</label>
       <textarea id="archive-caption" placeholder="Bu anın hikayesi..."></textarea>
+      <label for="archive-audio">🔊 Ses Kaydı (isteğe bağlı)</label>
+      <input type="file" id="archive-audio" accept="audio/*">
       <button id="archive-submit-btn">Arşive Ekle</button>
       <div id="archive-msg"></div>
     </section>
@@ -246,9 +248,11 @@ document.getElementById('archive-submit-btn').addEventListener('click', async ()
   const file = fileInput.files[0];
   const videoUrl = document.getElementById('archive-video').value.trim();
   const caption = document.getElementById('archive-caption').value.trim();
+  const audioInput = document.getElementById('archive-audio');
+  const audioFile = audioInput.files[0];
 
-  if (!file && !videoUrl && !caption) {
-    msgEl.textContent = 'En az bir fotoğraf, video bağlantısı ya da hikaye ekle.';
+  if (!file && !videoUrl && !caption && !audioFile) {
+    msgEl.textContent = 'En az bir fotoğraf, video bağlantısı, hikaye ya da ses kaydı ekle.';
     msgEl.className = 'error';
     return;
   }
@@ -266,11 +270,25 @@ document.getElementById('archive-submit-btn').addEventListener('click', async ()
     imageUrl = pub.publicUrl;
   }
 
+  let audioUrl = null;
+  if (audioFile) {
+    const audioPath = `${Civ6Auth.currentUser.id}/${Date.now()}_${audioFile.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const { error: audioErr } = await supabaseClient.storage.from('blog-audio').upload(audioPath, audioFile);
+    if (audioErr) {
+      msgEl.textContent = 'Ses kaydı yüklenemedi: ' + audioErr.message;
+      msgEl.className = 'error';
+      return;
+    }
+    const { data: audioPub } = supabaseClient.storage.from('blog-audio').getPublicUrl(audioPath);
+    audioUrl = audioPub.publicUrl;
+  }
+
   const { error: insErr } = await supabaseClient.from('archive_items').insert({
     author_id: Civ6Auth.currentUser.id,
     image_url: imageUrl,
     video_url: videoUrl || null,
-    caption: caption || null
+    caption: caption || null,
+    audio_url: audioUrl
   });
 
   if (insErr) {
@@ -284,6 +302,7 @@ document.getElementById('archive-submit-btn').addEventListener('click', async ()
   fileInput.value = '';
   document.getElementById('archive-video').value = '';
   document.getElementById('archive-caption').value = '';
+  audioInput.value = '';
   loadArchive();
 });
 
@@ -292,7 +311,7 @@ async function loadArchive() {
 
   const { data: items, error } = await supabaseClient
     .from('archive_items')
-    .select('id, image_url, video_url, caption, created_at')
+    .select('id, image_url, video_url, caption, audio_url, created_at')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -321,6 +340,7 @@ async function loadArchive() {
         <div class="archive-body">
           ${it.caption ? `<div class="archive-caption">${escapeHtml(it.caption)}</div>` : ''}
           ${it.video_url ? `<a class="pill" href="${escapeHtml(it.video_url)}" target="_blank" rel="noopener">▶️ Videoyu İzle</a>` : ''}
+          ${it.audio_url ? `<audio controls src="${escapeHtml(it.audio_url)}"></audio>` : ''}
           <div class="archive-date">${date}</div>
           ${Civ6Auth.isAdmin ? `<div class="card-actions"><button class="danger delete-archive" data-id="${it.id}">Sil</button></div>` : ''}
         </div>
