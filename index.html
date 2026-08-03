@@ -290,7 +290,7 @@ async function loadData() {
     <div class="lb-row${i < 3 ? ' rank-' + (i + 1) : ''}">
       <span class="lb-rank">${i + 1}</span>
       <span class="lb-name">${i < 3 ? `<span class="medal">${MEDALS[i]}</span>` : ''}<a href="profil.html?oyuncu=${encodeURIComponent(name)}">${escapeHtml(name)}</a></span>
-      <span class="lb-stats"><strong>${stats.points}</strong> puan · ${stats.games} oyun</span>
+      <span class="lb-stats"><strong>${formatPoints(stats.points)}</strong> puan · ${stats.games} oyun</span>
     </div>
   `).join('');
 
@@ -314,12 +314,17 @@ async function loadData() {
       const bonusPoints = badgeAwards.reduce((sum, a) => sum + a.badges.points, 0);
       const total = basePoints + bonusPoints;
       const badgeIcons = badgeAwards.map(a => a.badges.icon || '🏅').join('');
-      const tooltip = badgeAwards.map(a => `${a.badges.name} (${a.badges.points > 0 ? '+' : ''}${a.badges.points})`).join(', ');
+      const tooltip = badgeAwards.map(a => `${a.badges.name} (${a.badges.points > 0 ? '+' : ''}${formatPoints(a.badges.points)})`).join(', ');
 
-      return `<td${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>${total}${badgeIcons ? ` ${badgeIcons}` : ''}</td>`;
+      return `<td${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>${formatPoints(total)}${badgeIcons ? ` ${badgeIcons}` : ''}</td>`;
     }).join('');
     return `<tr><td><a href="profil.html?oyuncu=${encodeURIComponent(name)}">${escapeHtml(name)}</a></td>${cells}</tr>`;
   }).join('');
+}
+
+function formatPoints(n) {
+  n = Number(n);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function escapeHtml(str) {

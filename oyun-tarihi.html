@@ -212,7 +212,7 @@ async function loadGames() {
         ${g.description ? `<p class="muted">${escapeHtml(g.description)}</p>` : ''}
         ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : ''}
         ${awardedBadges.length ? `
-          <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan)` : ''}`).join(' · ')}</p>
+          <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${formatPoints(a.badges.points)} puan)` : ''}`).join(' · ')}</p>
         ` : ''}
         ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
@@ -355,6 +355,11 @@ async function loadArchive() {
       loadArchive();
     });
   });
+}
+
+function formatPoints(n) {
+  n = Number(n);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function escapeHtml(str) {

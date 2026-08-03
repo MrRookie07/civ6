@@ -118,10 +118,15 @@ async function loadBadgeRules() {
   listEl.innerHTML = badges.map(b => `
     <li>
       <strong>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}</strong>
-      ${b.points ? ` (${b.points > 0 ? '+' : ''}${b.points} puan)` : ''}
+      ${b.points ? ` (${b.points > 0 ? '+' : ''}${formatPoints(b.points)} puan)` : ''}
       ${b.description ? ` — ${escapeHtml(b.description)}` : ''}
     </li>
   `).join('');
+}
+
+function formatPoints(n) {
+  n = Number(n);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function escapeHtml(str) {

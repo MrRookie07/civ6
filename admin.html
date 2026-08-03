@@ -104,7 +104,7 @@
     <label for="badge-icon">İkon (emoji)</label>
     <input type="text" id="badge-icon" placeholder="🛡️" maxlength="4">
     <label for="badge-points">Bonus Puan</label>
-    <input type="number" id="badge-points" value="0" step="1">
+    <input type="number" id="badge-points" value="0" step="0.5">
     <label for="badge-description">Açıklama (isteğe bağlı)</label>
     <textarea id="badge-description" placeholder="Bu rozet ne için verilir?"></textarea>
     <button id="badge-create-btn">Rozet Oluştur</button>
@@ -124,7 +124,7 @@
 <script src="auth.js"></script>
 <script>
 const RANK_LABELS = ['1.', '2.', '3.', '4.', '5.', '6.'];
-const RANK_POINTS = [7, 4, 3, 2, 1, 0];
+const RANK_POINTS = [7, 3, 3, 2, 1, 1];
 const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
 
 const notLoggedInPanel = document.getElementById('not-logged-in-panel');
@@ -475,7 +475,7 @@ async function loadManageList() {
   const listEl = document.getElementById('manage-list');
   const { data: games, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, info_text, highlights, note, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
+    .select('id, played_on, name, description, info_text, highlights, note, ranked, poll_closed, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(badge_id, player_name, badges(name, icon, points))')
     .eq('status', 'completed')
     .order('created_at', { ascending: false });
 
@@ -502,6 +502,7 @@ async function loadManageList() {
           <div class="card-actions">
             <button data-id="${g.id}" data-ranked="${g.ranked}" class="secondary toggle-ranked">${g.ranked ? 'Derecesiz Yap' : 'Dereceli Yap'}</button>
             <button data-id="${g.id}" class="secondary award-badges-btn">🏅 Rozet Ver</button>
+            <button data-id="${g.id}" class="secondary poll-results-btn">🗳️ Anket Sonuçları</button>
             <button data-id="${g.id}" class="secondary edit-gameinfo-btn">📖 Oyun Bilgisi</button>
             <button data-id="${g.id}" class="secondary cover-photo-btn">🖼️ Kapak Fotoğrafı</button>
             <button data-id="${g.id}" class="danger delete-game">Sil</button>
@@ -516,6 +517,7 @@ async function loadManageList() {
         ${g.highlights ? `<p>${escapeHtml(g.highlights)}</p>` : ''}
         ${(g.game_images || []).map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('')}
         <div class="badge-award-form" id="badge-award-form-${g.id}" style="display:none; margin-top:1rem;"></div>
+        <div class="poll-results-panel" id="poll-results-${g.id}" style="display:none; margin-top:1rem;"></div>
         <div class="edit-gameinfo-form" id="edit-gameinfo-form-${g.id}" style="display:none; margin-top:1rem;">
           <label>Oyun Bilgisi — oyunun kendi sayfasında, kapak fotoğrafının altında öne çıkan şekilde gösterilir</label>
           <textarea class="edit-gameinfo-textarea" placeholder="Bu oyunun kısa bir anlatısı ya da öne çıkan notu...">${escapeHtml(g.info_text || '')}</textarea>
@@ -532,6 +534,13 @@ async function loadManageList() {
       </div>
     `;
   }).join('');
+
+  document.querySelectorAll('.poll-results-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const game = games.find(x => x.id === btn.dataset.id);
+      togglePollResults(game);
+    });
+  });
 
   document.querySelectorAll('.edit-gameinfo-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -634,6 +643,66 @@ async function loadManageList() {
   });
 }
 
+async function togglePollResults(game) {
+  const panel = document.getElementById(`poll-results-${game.id}`);
+  const opening = panel.style.display !== 'block';
+
+  if (!opening) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.innerHTML = `<p class="muted">Yükleniyor...</p>`;
+  panel.style.display = 'block';
+
+  const { data: votes, error } = await supabaseClient
+    .from('game_poll_votes')
+    .select('voter_id, deserved_win, player_name, created_at')
+    .eq('game_id', game.id)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    panel.innerHTML = `<p class="error">Anket sonuçları yüklenemedi.</p>`;
+    return;
+  }
+
+  let tableHtml = `<p class="muted">Henüz oy yok.</p>`;
+
+  if (votes && votes.length > 0) {
+    const voterIds = votes.map(v => v.voter_id);
+    const { data: profiles } = await supabaseClient
+      .from('profiles')
+      .select('id, username, player_name')
+      .in('id', voterIds);
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+    tableHtml = `
+      <table>
+        <thead><tr><th>Oy Veren</th><th>Kazanan Hak Etti mi?</th><th>MVP Oyu</th></tr></thead>
+        <tbody>
+          ${votes.map(v => {
+            const profile = profileMap[v.voter_id];
+            const voterLabel = profile ? escapeHtml(profile.player_name || profile.username) : 'Bilinmiyor';
+            return `<tr><td>${voterLabel}</td><td>${v.deserved_win ? 'Evet' : 'Hayır'}</td><td>${escapeHtml(v.player_name || '—')}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  panel.innerHTML = `
+    ${tableHtml}
+    <button type="button" class="secondary toggle-poll-closed-btn" data-id="${game.id}" data-closed="${game.poll_closed}">${game.poll_closed ? 'Anketi Aç' : 'Anketi Kapat'}</button>
+  `;
+
+  panel.querySelector('.toggle-poll-closed-btn').addEventListener('click', async () => {
+    const newClosed = panel.querySelector('.toggle-poll-closed-btn').dataset.closed !== 'true';
+    await supabaseClient.from('games').update({ poll_closed: newClosed }).eq('id', game.id);
+    loadManageList();
+  });
+}
+
 function toggleBadgeAwardForm(game) {
   const formEl = document.getElementById(`badge-award-form-${game.id}`);
   const opening = formEl.style.display !== 'block';
@@ -651,7 +720,7 @@ function toggleBadgeAwardForm(game) {
     formEl.innerHTML = `<p class="muted">Henüz tanımlı rozet yok. Önce yukarıdaki Rozetler panelinden bir tane oluştur.</p>`;
   } else {
     formEl.innerHTML = badgesCache.map(b => `
-      <label>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}${b.points ? ` (${b.points > 0 ? '+' : ''}${b.points} puan)` : ''}</label>
+      <label>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}${b.points ? ` (${b.points > 0 ? '+' : ''}${formatPoints(b.points)} puan)` : ''}</label>
       <select class="badge-award-select" data-badge-id="${b.id}">
         <option value="">— Kimse —</option>
         ${participants.map(p => `<option value="${escapeHtml(p)}"${existing[b.id] === p ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}
@@ -713,7 +782,7 @@ function badgeRowHtml(b) {
     <div class="member-row" id="badge-view-${b.id}">
       <div class="member-info">
         <strong>${escapeHtml(b.icon || '🏅')} ${escapeHtml(b.name)}</strong>
-        <span class="pill">${b.points > 0 ? '+' : ''}${b.points} puan</span>
+        <span class="pill">${b.points > 0 ? '+' : ''}${formatPoints(b.points)} puan</span>
       </div>
       <div class="card-actions">
         <button class="secondary edit-badge-btn" data-id="${b.id}">Düzenle</button>
@@ -727,7 +796,7 @@ function badgeRowHtml(b) {
       <label>İkon (emoji)</label>
       <input type="text" class="edit-badge-icon" value="${escapeHtml(b.icon || '')}" maxlength="4">
       <label>Bonus Puan</label>
-      <input type="number" class="edit-badge-points" value="${b.points}" step="1">
+      <input type="number" class="edit-badge-points" value="${b.points}" step="0.5">
       <label>Açıklama</label>
       <textarea class="edit-badge-description">${escapeHtml(b.description || '')}</textarea>
       <button class="edit-badge-save-btn" data-id="${b.id}">Kaydet</button>
@@ -766,7 +835,7 @@ function loadBadgesList() {
       const msgEl = formEl.querySelector('.edit-badge-msg');
       const name = formEl.querySelector('.edit-badge-name').value.trim();
       const icon = formEl.querySelector('.edit-badge-icon').value.trim();
-      const points = parseInt(formEl.querySelector('.edit-badge-points').value, 10) || 0;
+      const points = parseFloat(formEl.querySelector('.edit-badge-points').value) || 0;
       const description = formEl.querySelector('.edit-badge-description').value.trim();
 
       if (!name) {
@@ -809,7 +878,7 @@ document.getElementById('badge-create-btn').addEventListener('click', async () =
 
   const name = document.getElementById('badge-name').value.trim();
   const icon = document.getElementById('badge-icon').value.trim();
-  const points = parseInt(document.getElementById('badge-points').value, 10) || 0;
+  const points = parseFloat(document.getElementById('badge-points').value) || 0;
   const description = document.getElementById('badge-description').value.trim();
 
   if (!name) {
@@ -894,6 +963,11 @@ async function loadMembers() {
       msgEl.className = 'success';
     });
   });
+}
+
+function formatPoints(n) {
+  n = Number(n);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function escapeHtml(str) {

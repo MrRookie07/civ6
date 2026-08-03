@@ -66,6 +66,11 @@
     <div id="gallery-list"></div>
   </section>
 
+  <section class="panel" id="poll-panel" style="display:none;">
+    <h2>🗳️ Anket</h2>
+    <div id="poll-body"></div>
+  </section>
+
   <section class="panel" id="compose-panel" style="display:none;">
     <h2>✍️ Bu Oyun Hakkında Yaz</h2>
     <label for="post-title">Başlık</label>
@@ -111,6 +116,7 @@ Civ6Auth.onChange(() => {
   composePanel.style.display = loggedIn ? 'block' : 'none';
   loginHint.style.display = loggedIn ? 'none' : 'block';
   loadPosts();
+  loadPoll();
 });
 
 function insertAtCursor(textarea, text) {
@@ -289,7 +295,7 @@ async function loadGame() {
 
   const { data: g, error } = await supabaseClient
     .from('games')
-    .select('id, played_on, name, description, info_text, highlights, note, status, ranked, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(player_name, badges(name, icon, points))')
+    .select('id, played_on, name, description, info_text, highlights, note, status, ranked, poll_closed, cover_image_url, results(player_name, rank, points), game_images(image_url), game_badges(player_name, badges(name, icon, points))')
     .eq('id', gameId)
     .maybeSingle();
 
@@ -299,6 +305,8 @@ async function loadGame() {
     console.error(error);
     return;
   }
+
+  currentGame = g;
 
   const title = g.name || g.note || `${g.played_on} tarihli oyun`;
   document.getElementById('game-title-heading').textContent = title;
@@ -325,7 +333,7 @@ async function loadGame() {
     ${g.description ? `<p>${escapeHtml(g.description)}</p>` : ''}
     ${sortedResults.length ? `<ol>${sortedResults.map(r => `<li>${escapeHtml(r.player_name)} — ${r.points} puan</li>`).join('')}</ol>` : '<p class="muted">Henüz sonuç girilmedi.</p>'}
     ${awardedBadges.length ? `
-      <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${a.badges.points} puan)` : ''}`).join(' · ')}</p>
+      <p class="muted">${awardedBadges.map(a => `${escapeHtml(a.badges.icon || '🏅')} <a href="profil.html?oyuncu=${encodeURIComponent(a.player_name)}">${escapeHtml(a.player_name)}</a>: ${escapeHtml(a.badges.name)}${a.badges.points ? ` (${a.badges.points > 0 ? '+' : ''}${formatPoints(a.badges.points)} puan)` : ''}`).join(' · ')}</p>
     ` : ''}
     ${g.highlights ? `<p class="post-body">${escapeHtml(g.highlights)}</p>` : ''}
   `;
@@ -335,6 +343,112 @@ async function loadGame() {
     document.getElementById('gallery-panel').style.display = 'block';
     document.getElementById('gallery-list').innerHTML = images.map(img => `<img class="post-image" src="${img.image_url}" alt="">`).join('');
   }
+
+  await loadPoll();
+}
+
+const ROSTER = ['Yusuf', 'Eren', 'Arda', 'Alperen', 'Taha', 'Ayaz'];
+let currentGame = null;
+
+async function loadPoll() {
+  const panel = document.getElementById('poll-panel');
+  const bodyEl = document.getElementById('poll-body');
+  const g = currentGame;
+  if (!g) return;
+
+  const winner = (g.results || []).find(r => r.rank === 1);
+  if (!winner || g.status !== 'completed') {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+
+  if (g.poll_closed) {
+    bodyEl.innerHTML = `<p class="muted">Bu oyunun anketi kapatıldı.</p>`;
+    return;
+  }
+
+  if (!Civ6Auth.currentUser) {
+    bodyEl.innerHTML = `<p class="muted">Oy vermek için üst köşedeki <strong>Giriş Yap</strong> düğmesini kullan.</p>`;
+    return;
+  }
+
+  if (!Civ6Auth.playerName) {
+    bodyEl.innerHTML = `<p class="muted">Ankete katılmak için hesabının Şeref Listesi'ndeki bir oyuncuyla bağlantılı olması gerekir. Bunun için bir yöneticiyle konuş.</p>`;
+    return;
+  }
+
+  const myName = Civ6Auth.playerName;
+  const mvpCandidates = ROSTER.filter(n => n !== myName && n !== winner.player_name);
+
+  const { data: existingVote } = await supabaseClient
+    .from('game_poll_votes')
+    .select('deserved_win, player_name')
+    .eq('game_id', g.id)
+    .eq('voter_id', Civ6Auth.currentUser.id)
+    .maybeSingle();
+
+  bodyEl.innerHTML = `
+    <p class="muted">Kazanan: <strong>${escapeHtml(winner.player_name)}</strong></p>
+    <label>Kazanan bu zaferi hak etti mi?</label>
+    <div class="checkbox-row">
+      <label style="margin:0; text-transform:none;"><input type="radio" name="poll-deserved" value="yes" style="width:auto;" ${existingVote && existingVote.deserved_win === true ? 'checked' : ''}> Evet</label>
+      <label style="margin:0; text-transform:none;"><input type="radio" name="poll-deserved" value="no" style="width:auto;" ${existingVote && existingVote.deserved_win === false ? 'checked' : ''}> Hayır</label>
+    </div>
+    <label for="poll-mvp-select">Sence MVP olmayı bu oyunda kim hak etti?</label>
+    <select id="poll-mvp-select">
+      <option value="">— Seç —</option>
+      ${mvpCandidates.map(n => `<option value="${n}"${existingVote && existingVote.player_name === n ? ' selected' : ''}>${n}</option>`).join('')}
+    </select>
+    <button id="poll-submit-btn">${existingVote ? 'Oyunu Güncelle' : 'Oyla'}</button>
+    <div id="poll-msg"></div>
+  `;
+
+  document.getElementById('poll-submit-btn').addEventListener('click', async () => {
+    const msgEl = document.getElementById('poll-msg');
+    msgEl.textContent = '';
+    msgEl.className = '';
+
+    const deservedInput = document.querySelector('input[name="poll-deserved"]:checked');
+    const mvpSelect = document.getElementById('poll-mvp-select');
+
+    if (!deservedInput) {
+      msgEl.textContent = 'Lütfen bir seçim yap.';
+      msgEl.className = 'error';
+      return;
+    }
+    if (!mvpSelect.value) {
+      msgEl.textContent = 'Lütfen bir MVP seç.';
+      msgEl.className = 'error';
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from('game_poll_votes')
+      .upsert({
+        game_id: g.id,
+        voter_id: Civ6Auth.currentUser.id,
+        deserved_win: deservedInput.value === 'yes',
+        player_name: mvpSelect.value,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'game_id,voter_id' });
+
+    if (error) {
+      msgEl.textContent = 'Kaydedilemedi: ' + error.message;
+      msgEl.className = 'error';
+      return;
+    }
+
+    msgEl.textContent = 'Oyun kaydedildi!';
+    msgEl.className = 'success';
+    document.getElementById('poll-submit-btn').textContent = 'Oyunu Güncelle';
+  });
+}
+
+function formatPoints(n) {
+  n = Number(n);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function escapeHtml(str) {
