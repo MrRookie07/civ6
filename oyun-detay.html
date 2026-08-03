@@ -391,7 +391,7 @@ async function loadPoll() {
 
   bodyEl.innerHTML = `
     <p class="muted">Kazanan: <strong>${escapeHtml(winner.player_name)}</strong></p>
-    <label>Kazanan bu zaferi hak etti mi?</label>
+    <label>Saygınlık: Kazanan bu zaferi hak etti mi?</label>
     <div class="checkbox-row">
       <label style="margin:0; text-transform:none;"><input type="radio" name="poll-deserved" value="yes" style="width:auto;" ${existingVote && existingVote.deserved_win === true ? 'checked' : ''}> Evet</label>
       <label style="margin:0; text-transform:none;"><input type="radio" name="poll-deserved" value="no" style="width:auto;" ${existingVote && existingVote.deserved_win === false ? 'checked' : ''}> Hayır</label>
